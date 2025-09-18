@@ -1,0 +1,9 @@
+ node_modules/
+.env
+dist/
+*.log
+**/playwright-report/
+**/test-results/
+**/.cache/
+**/.env*
+\; cd server; npm init -y | Out-Null; npm pkg set name=fpl-power-meter-status-backend type=module; npm pkg set scripts.start=\node src/index.js\ scripts.dev=\nodemon src/index.js\; npm pkg set engines.node=\>=18\; npm i express cors multer csv-parse sqlite3 better-sqlite3 uuid; npm i -D playwright nodemon

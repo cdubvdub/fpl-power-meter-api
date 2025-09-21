@@ -1,15 +1,24 @@
 import express from "express";
 import cors from "cors";
 import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
 import { parseCsvStream } from "./utils/csv.js";
 import { ensureDatabase } from "../src/persistence/db.js";
 import { runSingleLookup, runBatchLookup } from "./services/batch.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from the web/dist directory
+const webDistPath = path.join(__dirname, "../../web/dist");
+app.use(express.static(webDistPath));
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -60,6 +69,11 @@ app.get("/api/batch/:jobId", async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error?.message || "Could not fetch results" });
   }
+});
+
+// Catch-all handler: send back React's index.html file for any non-API routes
+app.get("*", (req, res) => {
+  res.sendFile(path.join(webDistPath, "index.html"));
 });
 
 const PORT = process.env.PORT || 8080;

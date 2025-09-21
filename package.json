@@ -1,0 +1,21 @@
+{
+  "name": "fpl-power-meter-status",
+  "version": "1.0.0",
+  "description": "FPL Power Meter Status Checker with Playwright automation",
+  "main": "server/src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run web:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "web:dev": "cd web && npm run dev",
+    "build": "cd web && npm run build",
+    "start": "cd server && npm start",
+    "install:all": "npm install && cd server && npm install && cd ../web && npm install"
+  },
+  "keywords": ["fpl", "power-meter", "playwright", "automation"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

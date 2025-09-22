@@ -1,20 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "cd server && npm run build",
   "builds": [
     {
-      "src": "server/src/index.js",
+      "src": "server/src/vercel-server.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "server/src/index.js"
-    },
-    {
       "src": "/(.*)",
-      "dest": "server/src/index.js"
+      "dest": "server/src/vercel-server.js"
     }
   ]
 }

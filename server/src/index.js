@@ -69,8 +69,14 @@ app.get("/api/batch/:jobId", async (req, res) => {
 const PORT = process.env.PORT || 8080;
 
 // Catch-all handler: send back React's index.html file for any non-API routes
-app.get('*', (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'web', 'dist', 'index.html'));
+app.use((req, res) => {
+  const indexPath = path.join(process.cwd(), 'web', 'dist', 'index.html');
+  res.sendFile(indexPath, (err) => {
+    if (err) {
+      console.error('Error serving index.html:', err);
+      res.status(404).json({ error: 'Frontend not built yet' });
+    }
+  });
 });
 
 ensureDatabase();

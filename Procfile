@@ -1,1 +1,1 @@
-web: npm install && npx playwright install chromium && npm start
+web: npm install && npm run postinstall && npm start

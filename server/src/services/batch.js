@@ -1707,11 +1707,15 @@ async function clickAdditionalService(page) {
 }
 
 async function capture(page, label) {
+  // Screenshots disabled for production deployment
+  // Uncomment the lines below if you need debugging screenshots
+  /*
   try {
     const dir = path.join(process.cwd(), 'artifacts');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     await page.screenshot({ path: path.join(dir, `${Date.now()}-${label}.png`), fullPage: true });
   } catch {}
+  */
 }
 
 

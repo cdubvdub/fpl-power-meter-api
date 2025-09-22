@@ -15,8 +15,11 @@
   "keywords": ["fpl", "power-meter", "playwright", "automation"],
   "author": "Your Name",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "better-sqlite3": "^12.2.0",
+    "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",
     "csv-parse": "^6.1.0",
     "express": "^5.1.0",

@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "postinstall": "npx playwright install chromium"
   },
   "keywords": [],
   "author": "",
@@ -21,10 +22,10 @@
     "csv-parse": "^6.1.0",
     "express": "^5.1.0",
     "multer": "^2.0.2",
+    "playwright": "^1.55.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "playwright": "^1.55.0"
+    "nodemon": "^3.1.10"
   }
 }

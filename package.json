@@ -8,8 +8,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "postinstall": "npx playwright install chromium"
+    "start": "npx playwright install chromium && node src/index.js",
+    "postinstall": "echo 'Playwright will be installed at runtime'"
   },
   "keywords": ["fpl", "power-meter", "playwright", "automation"],
   "author": "Your Name",

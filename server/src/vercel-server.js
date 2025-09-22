@@ -78,8 +78,22 @@ app.get("/api/batch/:jobId", (req, res) => {
   });
 });
 
-// Serve static files (if available)
-app.get("*", (req, res) => {
+// Catch-all route for any other requests
+app.get("/", (req, res) => {
+  res.json({
+    message: "FPL Power Meter Status API",
+    endpoints: [
+      "GET /health - Health check",
+      "POST /api/lookup - Single address lookup",
+      "POST /api/batch - Batch CSV processing",
+      "GET /api/batch/:jobId - Get batch results"
+    ],
+    note: "Frontend not built for this demo"
+  });
+});
+
+// Handle any other GET requests
+app.get("/*", (req, res) => {
   res.json({
     message: "FPL Power Meter Status API",
     endpoints: [

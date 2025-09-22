@@ -12,8 +12,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from React build
-app.use(express.static(path.join(process.cwd(), 'web', 'dist')));
+// Static file serving removed for now
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
@@ -68,14 +67,12 @@ app.get("/api/batch/:jobId", async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 
-// Catch-all handler: send back React's index.html file for any non-API routes
-app.use((req, res) => {
-  const indexPath = path.join(process.cwd(), 'web', 'dist', 'index.html');
-  res.sendFile(indexPath, (err) => {
-    if (err) {
-      console.error('Error serving index.html:', err);
-      res.status(404).json({ error: 'Frontend not built yet' });
-    }
+// Simple root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'FPL Power Meter Status API', 
+    status: 'running',
+    endpoints: ['/api/lookup', '/api/batch', '/api/jobs', '/health']
   });
 });
 

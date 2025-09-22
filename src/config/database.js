@@ -1,56 +1,56 @@
-import Database from "better-sqlite3";
-import path from "node:path";
-import fs from "node:fs";
+// Simple in-memory database for Railway deployment
+// This avoids the better-sqlite3 native compilation issues
 
-let dbInstance;
+let jobs = new Map();
+let results = new Map();
+let nextResultId = 1;
 
 export function ensureDatabase() {
-  if (dbInstance) return dbInstance;
-  
-  // Use different database paths for development vs production
-  const isProduction = process.env.NODE_ENV === 'production';
-  const dbPath = isProduction 
-    ? path.join('/tmp', 'server-data.sqlite') // Vercel uses /tmp
-    : path.join(process.cwd(), 'server-data.sqlite');
-  
-  const dir = path.dirname(dbPath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  
-  const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
-  
-  // Create tables
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS jobs (
-      job_id TEXT PRIMARY KEY,
-      created_at TEXT NOT NULL,
-      status TEXT NOT NULL,
-      total INTEGER NOT NULL DEFAULT 0,
-      processed INTEGER NOT NULL DEFAULT 0
-    );
-    CREATE TABLE IF NOT EXISTS results (
-      job_id TEXT NOT NULL,
-      row_index INTEGER NOT NULL,
-      address TEXT,
-      unit TEXT,
-      meter_status TEXT,
-      property_status TEXT,
-      error TEXT,
-      created_at TEXT NOT NULL,
-      status_captured_at TEXT,
-      PRIMARY KEY (job_id, row_index)
-    );
-  `);
-  
-  // Add the status_captured_at column if it doesn't exist (for existing databases)
-  try {
-    db.exec(`ALTER TABLE results ADD COLUMN status_captured_at TEXT;`);
-  } catch (e) {
-    // Column already exists, ignore the error
-  }
-  
-  dbInstance = db;
-  return dbInstance;
+  return {
+    prepare: (sql) => {
+      return {
+        run: (...params) => {
+          if (sql.includes('INSERT INTO jobs')) {
+            const [jobId, createdAt, status, total, processed] = params;
+            jobs.set(jobId, { jobId, createdAt, status, total, processed: processed || 0 });
+            return { changes: 1, lastInsertRowid: 1 };
+          } else if (sql.includes('INSERT OR REPLACE INTO results')) {
+            const [jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt] = params;
+            const id = nextResultId++;
+            results.set(id, { 
+              id, jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt 
+            });
+            return { changes: 1, lastInsertRowid: id };
+          } else if (sql.includes('UPDATE jobs SET processed')) {
+            const [processed, jobId] = params;
+            const job = jobs.get(jobId);
+            if (job) {
+              job.processed = processed;
+              jobs.set(jobId, job);
+            }
+            return { changes: 1 };
+          } else if (sql.includes('UPDATE jobs SET status')) {
+            const [status, jobId] = params;
+            const job = jobs.get(jobId);
+            if (job) {
+              job.status = status;
+              jobs.set(jobId, job);
+            }
+            return { changes: 1 };
+          }
+          return { changes: 0 };
+        },
+        all: (jobId) => {
+          if (sql.includes('SELECT job_id, created_at, status, total, processed FROM jobs')) {
+            return Array.from(jobs.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          } else if (sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
+            return Array.from(results.values())
+              .filter(r => r.jobId === jobId)
+              .sort((a, b) => a.rowIndex - b.rowIndex);
+          }
+          return [];
+        }
+      };
+    }
+  };
 }

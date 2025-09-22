@@ -6,6 +6,8 @@ import { ensureDatabase } from "../persistence/db.js";
 import { buildAddressAndUnitFromRow } from "../utils/csv.js";
 
 export async function runSingleLookup({ username, password, tin, address, unit }) {
+  console.log('Starting single lookup...');
+  await clearArtifacts(); // Clear previous screenshots
   const headless = process.env.HEADLESS !== "false";
   const browser = await chromium.launch({ headless });
   const context = await browser.newContext();
@@ -22,6 +24,8 @@ export async function runSingleLookup({ username, password, tin, address, unit }
 }
 
 export async function runBatchLookup({ username, password, tin, rows }) {
+  console.log('Starting batch lookup...');
+  await clearArtifacts(); // Clear previous screenshots
   const jobId = uuidv4();
   const db = ensureDatabase();
   const now = new Date().toISOString();
@@ -99,7 +103,7 @@ async function safeLoginFlow({ page, username, password }) {
   console.log('Step 1: Navigating to FPL homepage...');
   await page.goto("https://www.fpl.com", { waitUntil: "networkidle" });
   await page.waitForLoadState("domcontentloaded");
-  await capture(page, 'fpl-homepage');
+  // await capture(page, 'fpl-homepage');
   
   // Cookie consent (best-effort)
   try {
@@ -109,7 +113,7 @@ async function safeLoginFlow({ page, username, password }) {
 
   // Step 2: Enter username and password and select "Log in"
   console.log('Step 2: Looking for login form...');
-  await capture(page, 'before-login');
+  // await capture(page, 'before-login');
   
   // Try to find login form on homepage first
   let loginFound = false;
@@ -200,7 +204,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   // Step 4: From the top menu select the "Services" drop down and choose "Start, Stop, Move"
   console.log('Step 4: Looking for Services dropdown...');
-  await capture(page, 'before-services-dropdown');
+  // await capture(page, 'before-services-dropdown');
   
   try {
     // Look for Services dropdown in top menu
@@ -231,7 +235,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   // Step 5: On the "Select your region." Page, Select the first "FPL" button
   console.log('Step 5: Looking for region selection...');
-  await capture(page, 'before-region-selection');
+  // await capture(page, 'before-region-selection');
   
   try {
     // Look for the specific FPL region choice element
@@ -275,7 +279,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   // Step 6: Select Additional Service
   console.log('Step 6: Looking for Additional Service...');
-  await capture(page, 'before-additional-service');
+  // await capture(page, 'before-additional-service');
   
   try {
     await clickAdditionalServiceSafe(page);
@@ -287,6 +291,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   // Step 7: Select business (radio button) and press "continue" button
   console.log('Step 7: Looking for Business radio button...');
+  await page.waitForTimeout(3000); // Wait for page to fully load
   await capture(page, 'before-business-selection');
   
   // Debug: List all radio buttons and inputs on the page
@@ -404,7 +409,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 8: Next button after Business selection
   console.log('Step 8: Looking for Next button after Business selection...');
-  await capture(page, 'before-step-8-next');
+  // await capture(page, 'before-step-8-next');
   try {
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
@@ -416,7 +421,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 9: Master account? No -> Next
   console.log('Step 9: Looking for master account question...');
-  await capture(page, 'before-master-account');
+  // await capture(page, 'before-master-account');
   try {
     const noRadio = page.getByLabel(/^No$/i);
     if (await noRadio.isVisible({ timeout: 5000 })) {
@@ -437,7 +442,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 10: TIN, Business Type, Person Making Request -> Next
   console.log('Step 10: Looking for TIN and Business Type fields...');
-  await capture(page, 'before-tin-fields');
+  // await capture(page, 'before-tin-fields');
   try {
     // Fill TIN
     const tinInput = page.getByLabel(/^TIN$/i).or(page.locator('input[aria-label="TIN"]'));
@@ -521,7 +526,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 9: Property Use select + Mailing address same -> Next
   console.log('Step 9: Looking for Property Use dropdown...');
-  await capture(page, 'before-property-use');
+  // await capture(page, 'before-property-use');
   
   try {
     // Try multiple strategies for Property Use dropdown
@@ -627,7 +632,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 11: Confirm property -> Next
   console.log('Step 11: Looking for Confirm property radio button...');
-  await capture(page, 'before-confirm-property');
+  // await capture(page, 'before-confirm-property');
   try {
     const confirmPropertyRadio = page.getByLabel(/Confirm property/i);
     if (await confirmPropertyRadio.isVisible({ timeout: 5000 })) {
@@ -648,7 +653,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 12: Address + unit -> Search/Next
   console.log('Step 12: Looking for Address field...');
-  await capture(page, 'before-address-fields');
+  // await capture(page, 'before-address-fields');
   try {
     const addressInput = page.getByLabel(/^Address$/i);
     if (await addressInput.isVisible({ timeout: 5000 })) {
@@ -855,7 +860,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 13: Confirm
   console.log('Step 13: Looking for Confirm button...');
-  await capture(page, 'before-confirm');
+  // await capture(page, 'before-confirm');
   try {
     // Strategy 1: Look for the specific span structure
     let confirmClicked = false;
@@ -1028,7 +1033,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
 
   // Step 14: Read statuses
   console.log('Step 14: Looking for Meter Status and Property Status...');
-  await capture(page, 'before-status-reading');
+  // await capture(page, 'before-status-reading');
   let meterStatus = "";
   let propertyStatus = "";
   try {
@@ -1079,7 +1084,7 @@ async function processNextAddress({ page, tin, address, unit }) {
   try {
     // Step 16: Click "Not the right address?" link
     console.log('Step 16: Looking for "Not the right address?" link...');
-    await capture(page, 'before-not-right-address');
+    // await capture(page, 'before-not-right-address');
     
     const notRightAddressLink = page.locator('a.text-weight-bold.text-primary:has-text("Not the right address?")');
     if (await notRightAddressLink.isVisible({ timeout: 10000 })) {
@@ -1094,7 +1099,7 @@ async function processNextAddress({ page, tin, address, unit }) {
     
     // Now we should be back at Step 12 (Address entry)
     console.log('Step 12 (repeat): Looking for Address field...');
-    await capture(page, 'before-repeat-address-fields');
+    // await capture(page, 'before-repeat-address-fields');
     
     try {
       const addressInput = page.getByLabel(/^Address$/i);
@@ -1253,7 +1258,7 @@ async function processNextAddress({ page, tin, address, unit }) {
       
       // Click Confirm button
       console.log('Looking for Confirm button...');
-      await capture(page, 'before-repeat-confirm');
+      // await capture(page, 'before-repeat-confirm');
       try {
         // Strategy 1: Look for the specific span structure
         let confirmClicked = false;
@@ -1424,7 +1429,7 @@ async function processNextAddress({ page, tin, address, unit }) {
       
       // Read statuses (Step 14)
       console.log('Step 14 (repeat): Looking for Meter Status and Property Status...');
-      await capture(page, 'before-repeat-status-reading');
+      // await capture(page, 'before-repeat-status-reading');
       let meterStatus = "";
       let propertyStatus = "";
       
@@ -1706,16 +1711,27 @@ async function clickAdditionalService(page) {
   throw new Error('Could not find "Additional Service" link/button after trying all strategies');
 }
 
+async function clearArtifacts() {
+  try {
+    const dir = path.join(process.cwd(), 'artifacts');
+    if (fs.existsSync(dir)) {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        fs.unlinkSync(path.join(dir, file));
+      }
+      console.log(`Cleared ${files.length} files from artifacts folder`);
+    }
+  } catch (error) {
+    console.log('Error clearing artifacts folder:', error.message);
+  }
+}
+
 async function capture(page, label) {
-  // Screenshots disabled for production deployment
-  // Uncomment the lines below if you need debugging screenshots
-  /*
   try {
     const dir = path.join(process.cwd(), 'artifacts');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     await page.screenshot({ path: path.join(dir, `${Date.now()}-${label}.png`), fullPage: true });
   } catch {}
-  */
 }
 
 

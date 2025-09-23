@@ -68,10 +68,13 @@ app.get("/api/jobs", (_req, res) => {
 app.get("/api/jobs/:jobId/results", (req, res) => {
   try {
     const { jobId } = req.params;
+    console.log(`Fetching results for job: ${jobId}`);
     const db = ensureDatabase();
     const results = db.prepare("SELECT * FROM results WHERE job_id = ? ORDER BY row_index").all(jobId);
+    console.log(`Found ${results.length} results for job ${jobId}:`, results);
     res.json(results);
   } catch (error) {
+    console.error(`Error fetching results for job ${req.params.jobId}:`, error);
     res.status(500).json({ error: error?.message || "Failed to fetch results" });
   }
 });

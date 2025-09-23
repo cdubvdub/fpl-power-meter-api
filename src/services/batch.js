@@ -63,15 +63,18 @@ export async function runBatchLookup({ username, password, tin, rows }) {
           }
           
           // Check if we got valid results
+          console.log(`Result for address ${i + 1}:`, result);
           if (result && (result.meterStatus !== "Not found" || result.propertyStatus !== "Not found")) {
             console.log(`Successfully processed: Meter=${result.meterStatus}, Property=${result.propertyStatus}`);
             const statusCapturedAt = new Date().toISOString();
-            db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
+            console.log(`Inserted result for address ${i + 1}:`, insertResult);
           } else {
             console.log('No valid status found, will restart from Step 4 for next address');
-            db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
+            console.log(`Inserted error result for address ${i + 1}:`, insertResult);
             needsFullFlow = true; // Next address needs full flow
           }
         } catch (error) {

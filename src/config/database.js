@@ -17,9 +17,11 @@ export function ensureDatabase() {
           } else if (sql.includes('INSERT OR REPLACE INTO results')) {
             const [jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt] = params;
             const id = nextResultId++;
-            results.set(id, { 
+            const resultData = { 
               id, jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt 
-            });
+            };
+            results.set(id, resultData);
+            console.log(`Database mock: stored result ${id} for job ${jobId}:`, resultData);
             return { changes: 1, lastInsertRowid: id };
           } else if (sql.includes('UPDATE jobs SET processed')) {
             const [processed, jobId] = params;
@@ -40,13 +42,17 @@ export function ensureDatabase() {
           }
           return { changes: 0 };
         },
-        all: (jobId) => {
+        all: (...params) => {
           if (sql.includes('SELECT * FROM jobs') || sql.includes('SELECT job_id, created_at, status, total, processed FROM jobs')) {
             return Array.from(jobs.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           } else if (sql.includes('SELECT * FROM results') || sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
-            return Array.from(results.values())
+            const jobId = params[0]; // First parameter is the jobId
+            console.log(`Database mock: filtering results for jobId: ${jobId}`);
+            const filteredResults = Array.from(results.values())
               .filter(r => r.jobId === jobId)
               .sort((a, b) => a.rowIndex - b.rowIndex);
+            console.log(`Database mock: found ${filteredResults.length} results:`, filteredResults);
+            return filteredResults;
           }
           return [];
         }

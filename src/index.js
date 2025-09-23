@@ -96,6 +96,7 @@ app.get("/api/jobs/search", (req, res) => {
     // First, let's see what jobs exist
     const allJobs = db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all();
     console.log(`All jobs in database:`, allJobs);
+    console.log(`Database instance info:`, db);
     
     let jobs;
     if (startDate && endDate) {

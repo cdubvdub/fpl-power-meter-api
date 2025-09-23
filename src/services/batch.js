@@ -25,11 +25,13 @@ export async function runSingleLookup({ username, password, tin, address, unit }
 
 export async function runBatchLookup({ username, password, tin, rows }) {
   console.log('Starting batch lookup...');
+  console.log(`Processing ${rows.length} addresses:`, rows.map((row, i) => `${i + 1}. ${buildAddressAndUnitFromRow(row).address}`));
   await clearArtifacts(); // Clear previous screenshots
   const jobId = uuidv4();
   const db = ensureDatabase();
   const now = new Date().toISOString();
   db.prepare("INSERT INTO jobs(job_id, created_at, status, total, processed) VALUES (?, ?, ?, ?, ?)").run(jobId, now, "running", rows.length, 0);
+  console.log(`Job ${jobId} created with ${rows.length} total addresses`);
 
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {

@@ -79,6 +79,30 @@ app.get("/api/jobs/:jobId/results", (req, res) => {
   }
 });
 
+// Search jobs by date range
+app.get("/api/jobs/search", (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    console.log(`Searching jobs from ${startDate} to ${endDate}`);
+    const db = ensureDatabase();
+    
+    let jobs;
+    if (startDate && endDate) {
+      // Filter by date range
+      jobs = db.prepare("SELECT * FROM jobs WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC").all(startDate, endDate);
+    } else {
+      // Return all jobs
+      jobs = db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all();
+    }
+    
+    console.log(`Found ${jobs.length} jobs in search`);
+    res.json(jobs);
+  } catch (error) {
+    console.error('Error searching jobs:', error);
+    res.status(500).json({ error: error?.message || "Failed to search jobs" });
+  }
+});
+
 const PORT = process.env.PORT || 8080;
 
 ensureDatabase();

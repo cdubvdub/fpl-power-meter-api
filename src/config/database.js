@@ -44,7 +44,18 @@ export function ensureDatabase() {
         },
         all: (...params) => {
           if (sql.includes('SELECT * FROM jobs') || sql.includes('SELECT job_id, created_at, status, total, processed FROM jobs')) {
-            return Array.from(jobs.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            let jobList = Array.from(jobs.values());
+            
+            // Handle date range filtering
+            if (sql.includes('WHERE created_at >= ? AND created_at <= ?')) {
+              const [startDate, endDate] = params;
+              jobList = jobList.filter(job => {
+                const jobDate = new Date(job.createdAt);
+                return jobDate >= new Date(startDate) && jobDate <= new Date(endDate);
+              });
+            }
+            
+            return jobList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
           } else if (sql.includes('SELECT * FROM results') || sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
             const jobId = params[0]; // First parameter is the jobId
             console.log(`Database mock: filtering results for jobId: ${jobId}`);

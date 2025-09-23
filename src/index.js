@@ -98,6 +98,10 @@ app.get("/api/jobs/search", (req, res) => {
     console.log(`All jobs in database:`, allJobs);
     console.log(`Database instance info:`, db);
     
+    // Also check what results exist
+    const allResults = db.prepare("SELECT * FROM results ORDER BY status_captured_at DESC").all();
+    console.log(`All results in database:`, allResults);
+    
     let jobs;
     if (startDate && endDate) {
       // Filter by status captured date range - get unique jobs from results table

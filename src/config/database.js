@@ -98,13 +98,22 @@ export function ensureDatabase() {
             
             return uniqueJobIds.map(jobId => ({ job_id: jobId }));
           } else if (sql.includes('SELECT * FROM results') || sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
-            const jobId = params[0]; // First parameter is the jobId
-            console.log(`Database mock: filtering results for jobId: ${jobId}`);
-            const filteredResults = Array.from(results.values())
-              .filter(r => r.jobId === jobId)
-              .sort((a, b) => a.rowIndex - b.rowIndex);
-            console.log(`Database mock: found ${filteredResults.length} results:`, filteredResults);
-            return filteredResults;
+            if (params.length > 0) {
+              // Filter by jobId
+              const jobId = params[0];
+              console.log(`Database mock: filtering results for jobId: ${jobId}`);
+              const filteredResults = Array.from(results.values())
+                .filter(r => r.jobId === jobId)
+                .sort((a, b) => a.rowIndex - b.rowIndex);
+              console.log(`Database mock: found ${filteredResults.length} results:`, filteredResults);
+              return filteredResults;
+            } else {
+              // Return all results
+              const allResults = Array.from(results.values())
+                .sort((a, b) => new Date(b.statusCapturedAt) - new Date(a.statusCapturedAt));
+              console.log(`Database mock: returning all ${allResults.length} results:`, allResults);
+              return allResults;
+            }
           }
           return [];
         }

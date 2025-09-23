@@ -41,9 +41,9 @@ export function ensureDatabase() {
           return { changes: 0 };
         },
         all: (jobId) => {
-          if (sql.includes('SELECT job_id, created_at, status, total, processed FROM jobs')) {
+          if (sql.includes('SELECT * FROM jobs') || sql.includes('SELECT job_id, created_at, status, total, processed FROM jobs')) {
             return Array.from(jobs.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-          } else if (sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
+          } else if (sql.includes('SELECT * FROM results') || sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
             return Array.from(results.values())
               .filter(r => r.jobId === jobId)
               .sort((a, b) => a.rowIndex - b.rowIndex);

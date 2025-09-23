@@ -46,7 +46,10 @@ app.post("/api/batch", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields or file" });
     }
     const rows = await parseCsvStream(req.file.buffer);
-    const jobId = await runBatchLookup({ username, password, tin, rows });
+    const result = await runBatchLookup({ username, password, tin, rows });
+    console.log('runBatchLookup returned:', result);
+    const jobId = typeof result === 'string' ? result : result.jobId;
+    console.log('Extracted jobId:', jobId);
     res.json({ jobId, message: "Batch processing started" });
   } catch (error) {
     res.status(500).json({ error: error?.message || "Batch processing failed" });

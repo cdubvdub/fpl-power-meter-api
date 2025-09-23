@@ -79,8 +79,9 @@ export async function runBatchLookup({ username, password, tin, rows }) {
           }
         } catch (error) {
           console.log(`Error processing address ${i + 1}: ${error.message}`);
+          console.log(`Full error details:`, error);
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .run(jobId, i, null, null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
+            .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
           needsFullFlow = true; // Next address needs full flow
         }
         processed += 1;

@@ -86,16 +86,20 @@ app.get("/api/jobs/search", (req, res) => {
     console.log(`Searching jobs from ${startDate} to ${endDate}`);
     const db = ensureDatabase();
     
+    // First, let's see what jobs exist
+    const allJobs = db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all();
+    console.log(`All jobs in database:`, allJobs);
+    
     let jobs;
     if (startDate && endDate) {
       // Filter by date range
       jobs = db.prepare("SELECT * FROM jobs WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC").all(startDate, endDate);
     } else {
       // Return all jobs
-      jobs = db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all();
+      jobs = allJobs;
     }
     
-    console.log(`Found ${jobs.length} jobs in search`);
+    console.log(`Found ${jobs.length} jobs in search:`, jobs);
     res.json(jobs);
   } catch (error) {
     console.error('Error searching jobs:', error);

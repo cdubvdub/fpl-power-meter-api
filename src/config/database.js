@@ -1,11 +1,30 @@
 // Simple in-memory database for Railway deployment
 // This avoids the better-sqlite3 native compilation issues
 
-let jobs = new Map();
-let results = new Map();
-let nextResultId = 1;
+// Use a singleton pattern to ensure data persists across requests
+let databaseInstance = null;
+
+function createDatabase() {
+  const jobs = new Map();
+  const results = new Map();
+  let nextResultId = 1;
+
+  return {
+    jobs,
+    results,
+    nextResultId: () => nextResultId++,
+    getNextResultId: () => nextResultId
+  };
+}
 
 export function ensureDatabase() {
+  if (!databaseInstance) {
+    databaseInstance = createDatabase();
+    console.log('Created new database instance');
+  }
+  
+  const { jobs, results, nextResultId } = databaseInstance;
+  console.log(`Database instance: ${jobs.size} jobs, ${results.size} results`);
   return {
     prepare: (sql) => {
       return {
@@ -16,7 +35,7 @@ export function ensureDatabase() {
             return { changes: 1, lastInsertRowid: 1 };
           } else if (sql.includes('INSERT OR REPLACE INTO results')) {
             const [jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt] = params;
-            const id = nextResultId++;
+            const id = nextResultId();
             const resultData = { 
               id, jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt 
             };

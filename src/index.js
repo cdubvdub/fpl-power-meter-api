@@ -50,6 +50,8 @@ app.post("/api/batch", upload.single("file"), async (req, res) => {
     console.log('runBatchLookup returned:', result);
     const jobId = typeof result === 'string' ? result : result.jobId;
     console.log('Extracted jobId:', jobId);
+    console.log('JobId type:', typeof jobId);
+    console.log('Deployment timestamp:', new Date().toISOString());
     res.json({ jobId, message: "Batch processing started" });
   } catch (error) {
     res.status(500).json({ error: error?.message || "Batch processing failed" });

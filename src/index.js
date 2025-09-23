@@ -77,6 +77,8 @@ app.get("/api/jobs/:jobId/results", (req, res) => {
     const db = ensureDatabase();
     const results = db.prepare("SELECT * FROM results WHERE job_id = ? ORDER BY row_index").all(jobId);
     console.log(`Found ${results.length} results for job ${jobId}:`, results);
+    console.log(`Result job IDs:`, results.map(r => r.jobId || r.job_id));
+    console.log(`Looking for job ID:`, jobId);
     res.json(results);
   } catch (error) {
     console.error(`Error fetching results for job ${req.params.jobId}:`, error);

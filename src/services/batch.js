@@ -75,7 +75,8 @@ export async function runBatchLookup({ username, password, tin, rows }) {
             const statusCapturedAt = new Date().toISOString();
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
-            console.log(`Inserted result for address ${i + 1}:`, insertResult);
+            console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
+            console.log(`Result data: address=${address}, meterStatus=${result?.meterStatus}, propertyStatus=${result?.propertyStatus}`);
           } else {
             console.log('No valid status found, will restart from Step 4 for next address');
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")

@@ -81,6 +81,22 @@ export function ensureDatabase() {
             const sortedJobs = jobList.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             console.log(`Database mock: Returning ${sortedJobs.length} sorted jobs`);
             return sortedJobs;
+          } else if (sql.includes('SELECT DISTINCT job_id FROM results')) {
+            // Handle the new query for searching by status captured date
+            const [startDate, endDate] = params;
+            console.log(`Database mock: Searching results by status captured date ${startDate} to ${endDate}`);
+            
+            const filteredResults = Array.from(results.values()).filter(result => {
+              if (!result.statusCapturedAt) return false;
+              const capturedDate = new Date(result.statusCapturedAt);
+              return capturedDate >= new Date(startDate) && capturedDate <= new Date(endDate);
+            });
+            
+            // Get unique job IDs
+            const uniqueJobIds = [...new Set(filteredResults.map(r => r.jobId))];
+            console.log(`Database mock: Found ${uniqueJobIds.length} unique job IDs:`, uniqueJobIds);
+            
+            return uniqueJobIds.map(jobId => ({ job_id: jobId }));
           } else if (sql.includes('SELECT * FROM results') || sql.includes('SELECT row_index, address, unit, meter_status, property_status, status_captured_at, error FROM results')) {
             const jobId = params[0]; // First parameter is the jobId
             console.log(`Database mock: filtering results for jobId: ${jobId}`);

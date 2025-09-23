@@ -100,8 +100,18 @@ app.get("/api/jobs/search", (req, res) => {
     
     let jobs;
     if (startDate && endDate) {
-      // Filter by date range
-      jobs = db.prepare("SELECT * FROM jobs WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC").all(startDate, endDate);
+      // Filter by status captured date range - get unique jobs from results table
+      const jobIds = db.prepare(`
+        SELECT DISTINCT job_id 
+        FROM results 
+        WHERE status_captured_at >= ? AND status_captured_at <= ? 
+        ORDER BY status_captured_at DESC
+      `).all(startDate, endDate);
+      
+      console.log(`Found ${jobIds.length} job IDs in date range:`, jobIds);
+      
+      // Get the full job details for these job IDs
+      jobs = jobIds.map(j => jobs.get(j.job_id)).filter(j => j);
     } else {
       // Return all jobs
       jobs = allJobs;

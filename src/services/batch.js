@@ -49,17 +49,21 @@ export async function runBatchLookup({ username, password, tin, rows }) {
         try {
           const { address, unit } = buildAddressAndUnitFromRow(row);
           console.log(`\n=== Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} ===`);
+          console.log(`Current page URL: ${page.url()}`);
           
           let result;
           if (needsFullFlow) {
             // First address or after a failure - go through full flow
             console.log('Using full flow for this address...');
             result = await performPostLoginFlow({ page, tin, address, unit });
+            console.log('Full flow completed, result:', result);
             needsFullFlow = false; // Next addresses can use "Not the right address?"
           } else {
             // Subsequent addresses - use "Not the right address?" link
             console.log('Using "Not the right address?" flow for this address...');
+            console.log('Looking for "Not the right address?" link...');
             result = await processNextAddress({ page, tin, address, unit });
+            console.log('"Not the right address?" flow completed, result:', result);
           }
           
           // Check if we got valid results
@@ -86,7 +90,9 @@ export async function runBatchLookup({ username, password, tin, rows }) {
         }
         processed += 1;
         db.prepare("UPDATE jobs SET processed = ? WHERE job_id = ?").run(processed, jobId);
+        console.log(`Completed address ${i + 1}/${rows.length}. Processed count: ${processed}`);
       }
+      console.log(`Batch processing completed. Total addresses processed: ${processed}/${rows.length}`);
       db.prepare("UPDATE jobs SET status = 'completed' WHERE job_id = ?").run(jobId);
     } catch (e) {
       console.log(`Batch processing failed: ${e.message}`);
@@ -1090,14 +1096,37 @@ async function processNextAddress({ page, tin, address, unit }) {
     console.log('Step 16: Looking for "Not the right address?" link...');
     // await capture(page, 'before-not-right-address');
     
-    const notRightAddressLink = page.locator('a.text-weight-bold.text-primary:has-text("Not the right address?")');
-    if (await notRightAddressLink.isVisible({ timeout: 10000 })) {
-      console.log('Found "Not the right address?" link, clicking it...');
+    // Try multiple selectors for the "Not the right address?" link
+    let notRightAddressLink = null;
+    const selectors = [
+      'a.text-weight-bold.text-primary:has-text("Not the right address?")',
+      'a:has-text("Not the right address?")',
+      'a[href="javascript:void(0);"]:has-text("Not the right address?")',
+      'a.text-primary:has-text("Not the right address?")'
+    ];
+    
+    for (const selector of selectors) {
+      try {
+        const link = page.locator(selector);
+        if (await link.isVisible({ timeout: 5000 })) {
+          console.log(`Found "Not the right address?" link with selector: ${selector}`);
+          notRightAddressLink = link;
+          break;
+        }
+      } catch (e) {
+        console.log(`Selector ${selector} failed:`, e.message);
+      }
+    }
+    
+    if (notRightAddressLink) {
+      console.log('Clicking "Not the right address?" link...');
       await notRightAddressLink.click();
       await page.waitForTimeout(3000);
       await capture(page, 'after-not-right-address-click');
     } else {
-      console.log('"Not the right address?" link not found, falling back to full flow');
+      console.log('"Not the right address?" link not found with any selector, falling back to full flow');
+      console.log('Current page URL:', page.url());
+      console.log('Current page title:', await page.title());
       return await performPostLoginFlow({ page, tin, address, unit });
     }
     

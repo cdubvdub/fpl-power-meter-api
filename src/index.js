@@ -3,7 +3,7 @@ import cors from "cors";
 import multer from "multer";
 import { parseCsvStream } from "./utils/csv.js";
 import { ensureDatabase } from "./config/database.js";
-import { runSingleLookup, runBatchLookup } from "./services/batch.js";
+import { runSingleLookup, runBatchLookup, runQueueBatchLookup } from "./services/batch.js";
 
 const app = express();
 
@@ -113,7 +113,10 @@ app.post("/api/batch", upload.single("file"), async (req, res) => {
       sendProgressUpdate(jobId, data);
     };
     
-    const result = await runBatchLookup({ username, password, tin, rows, progressCallback });
+    // Use queue processing for batches over 50 addresses
+    const result = rows.length > 50 
+      ? await runQueueBatchLookup({ username, password, tin, rows, progressCallback })
+      : await runBatchLookup({ username, password, tin, rows, progressCallback });
     console.log('runBatchLookup returned:', result);
     const jobId = typeof result === 'string' ? result : result.jobId;
     console.log('Extracted jobId:', jobId);

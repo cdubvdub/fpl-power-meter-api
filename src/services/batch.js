@@ -25,7 +25,14 @@ export async function runSingleLookup({ username, password, tin, address, unit }
 
 export async function runBatchLookup({ username, password, tin, rows, progressCallback }) {
   console.log('Starting batch lookup...');
-  console.log(`Processing ${rows.length} addresses:`, rows.map((row, i) => `${i + 1}. ${buildAddressAndUnitFromRow(row).address}`));
+  
+  // Limit batch size to prevent Railway rate limits
+  const MAX_BATCH_SIZE = 50;
+  if (rows.length > MAX_BATCH_SIZE) {
+    throw new Error(`Batch size too large. Maximum ${MAX_BATCH_SIZE} addresses allowed. Please split your CSV into smaller files.`);
+  }
+  
+  console.log(`Processing ${rows.length} addresses (max ${MAX_BATCH_SIZE})`);
   await clearArtifacts(); // Clear previous screenshots
   const jobId = uuidv4();
   const db = ensureDatabase();
@@ -40,7 +47,7 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
       jobId,
       total: rows.length,
       processed: 0,
-      message: `Starting batch processing of ${rows.length} addresses`
+      message: `Starting batch processing of ${rows.length} addresses in chunks of 25`
     });
   }
 
@@ -61,9 +68,14 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
         const row = rows[i];
         try {
           const { address, unit } = buildAddressAndUnitFromRow(row);
-          // Reduced logging for Railway rate limits
-          if ((i + 1) % 10 === 0 || i === 0) {
+          // Reduced logging for Railway rate limits - only every 25th address
+          if ((i + 1) % 25 === 0 || i === 0) {
             console.log(`Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`);
+          }
+          
+          // Add delay between addresses to reduce processing pressure
+          if (i > 0) {
+            await page.waitForTimeout(2000); // 2 second delay between addresses
           }
           
           let result;
@@ -94,8 +106,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
             // console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
             
-            // Send progress update
-            if (progressCallback) {
+            // Send progress update only every 10th address to reduce SSE frequency
+            if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
               progressCallback(jobId, {
                 type: 'address_completed',
                 jobId,
@@ -117,8 +129,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
               .run(jobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
             // console.log(`Inserted error result for address ${i + 1}:`, insertResult);
             
-            // Send progress update for failed address
-            if (progressCallback) {
+            // Send progress update for failed address only every 10th address
+            if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
               progressCallback(jobId, {
                 type: 'address_failed',
                 jobId,
@@ -140,8 +152,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
           
-          // Send progress update for error
-          if (progressCallback) {
+          // Send progress update for error only every 10th address
+          if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
             progressCallback(jobId, {
               type: 'address_error',
               jobId,
@@ -195,6 +207,122 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
   })();
 
   return { jobId, total: rows.length };
+}
+
+// Queue processing function for larger batches
+export async function runQueueBatchLookup({ username, password, tin, rows, progressCallback }) {
+  console.log('Starting queue batch lookup...');
+  console.log(`Processing ${rows.length} addresses in queue of 50-address batches`);
+  
+  const QUEUE_SIZE = 50;
+  const batches = [];
+  
+  // Split rows into batches of 50
+  for (let i = 0; i < rows.length; i += QUEUE_SIZE) {
+    batches.push(rows.slice(i, i + QUEUE_SIZE));
+  }
+  
+  console.log(`Created ${batches.length} batches to process`);
+  
+  const masterJobId = uuidv4();
+  const db = ensureDatabase();
+  const now = new Date().toISOString();
+  db.prepare("INSERT INTO jobs(job_id, created_at, status, total, processed) VALUES (?, ?, ?, ?, ?)").run(masterJobId, now, "running", rows.length, 0);
+  
+  // Send initial progress update
+  if (progressCallback) {
+    progressCallback(masterJobId, {
+      type: 'queue_started',
+      jobId: masterJobId,
+      total: rows.length,
+      processed: 0,
+      totalBatches: batches.length,
+      message: `Starting queue processing of ${rows.length} addresses in ${batches.length} batches`
+    });
+  }
+  
+  // Process each batch sequentially
+  let totalProcessed = 0;
+  for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+    const batch = batches[batchIndex];
+    const batchJobId = `${masterJobId}-batch-${batchIndex + 1}`;
+    
+    console.log(`Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} addresses)`);
+    
+    try {
+      // Process this batch
+      const result = await runBatchLookup({ 
+        username, 
+        password, 
+        tin, 
+        rows: batch, 
+        progressCallback: (jobId, data) => {
+          // Update jobId to master job
+          data.jobId = masterJobId;
+          data.batchIndex = batchIndex + 1;
+          data.totalBatches = batches.length;
+          if (progressCallback) {
+            progressCallback(masterJobId, data);
+          }
+        }
+      });
+      
+      totalProcessed += batch.length;
+      
+      // Update master job progress
+      db.prepare("UPDATE jobs SET processed = ? WHERE job_id = ?").run(totalProcessed, masterJobId);
+      
+      // Send batch completion update
+      if (progressCallback) {
+        progressCallback(masterJobId, {
+          type: 'batch_completed',
+          jobId: masterJobId,
+          total: rows.length,
+          processed: totalProcessed,
+          batchIndex: batchIndex + 1,
+          totalBatches: batches.length,
+          message: `Completed batch ${batchIndex + 1}/${batches.length} (${batch.length} addresses)`
+        });
+      }
+      
+      // Add delay between batches to prevent rate limits
+      if (batchIndex < batches.length - 1) {
+        console.log('Waiting 30 seconds before next batch...');
+        await new Promise(resolve => setTimeout(resolve, 30000));
+      }
+      
+    } catch (error) {
+      console.error(`Batch ${batchIndex + 1} failed:`, error.message);
+      
+      if (progressCallback) {
+        progressCallback(masterJobId, {
+          type: 'batch_failed',
+          jobId: masterJobId,
+          total: rows.length,
+          processed: totalProcessed,
+          batchIndex: batchIndex + 1,
+          totalBatches: batches.length,
+          error: error.message,
+          message: `Batch ${batchIndex + 1}/${batches.length} failed: ${error.message}`
+        });
+      }
+    }
+  }
+  
+  // Mark master job as completed
+  db.prepare("UPDATE jobs SET status = 'completed' WHERE job_id = ?").run(masterJobId);
+  
+  if (progressCallback) {
+    progressCallback(masterJobId, {
+      type: 'queue_completed',
+      jobId: masterJobId,
+      total: rows.length,
+      processed: totalProcessed,
+      message: `Queue processing completed! Processed ${totalProcessed}/${rows.length} addresses across ${batches.length} batches.`
+    });
+  }
+  
+  return { jobId: masterJobId, total: rows.length };
 }
 
 async function safeLoginFlow({ page, username, password }) {

@@ -13,18 +13,20 @@ function createDatabase() {
     jobs,
     results,
     nextResultId: () => nextResultId++,
-    getNextResultId: () => nextResultId
+    getNextResultId: () => nextResultId,
+    createdAt: new Date().toISOString()
   };
 }
 
 export function ensureDatabase() {
   if (!databaseInstance) {
     databaseInstance = createDatabase();
-    console.log('Created new database instance');
+    console.log('Created new database instance at:', new Date().toISOString());
   }
   
   const { jobs, results, nextResultId } = databaseInstance;
   console.log(`Database instance: ${jobs.size} jobs, ${results.size} results`);
+  console.log('Database instance created at:', databaseInstance.createdAt || 'unknown');
   return {
     prepare: (sql) => {
       return {

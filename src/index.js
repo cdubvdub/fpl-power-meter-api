@@ -15,6 +15,26 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// Test endpoint to check database persistence
+app.get("/api/test-db", (_req, res) => {
+  const db = ensureDatabase();
+  const testKey = `test-${Date.now()}`;
+  
+  // Add a test entry
+  db.prepare("INSERT INTO jobs(job_id, created_at, status, total, processed) VALUES (?, ?, ?, ?, ?)")
+    .run(testKey, new Date().toISOString(), 'test', 1, 1);
+  
+  // Get all jobs
+  const jobs = db.prepare("SELECT * FROM jobs ORDER BY created_at DESC").all();
+  
+  res.json({ 
+    message: 'Database test',
+    testKey,
+    totalJobs: jobs.length,
+    jobs: jobs.map(j => ({ jobId: j.jobId, createdAt: j.createdAt, status: j.status }))
+  });
+});
+
 // Simple root route
 app.get('/', (req, res) => {
   res.json({ 

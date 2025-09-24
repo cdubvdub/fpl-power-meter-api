@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
 import { v4 as uuidv4 } from "uuid";
-import { ensureDatabase } from "../persistence/db.js";
+import { ensureDatabase } from "../config/database.js";
 import { buildAddressAndUnitFromRow } from "../utils/csv.js";
 
 export async function runSingleLookup({ username, password, tin, address, unit }) {
@@ -23,7 +23,7 @@ export async function runSingleLookup({ username, password, tin, address, unit }
   }
 }
 
-export async function runBatchLookup({ username, password, tin, rows }) {
+export async function runBatchLookup({ username, password, tin, rows, progressCallback }) {
   console.log('Starting batch lookup...');
   console.log(`Processing ${rows.length} addresses:`, rows.map((row, i) => `${i + 1}. ${buildAddressAndUnitFromRow(row).address}`));
   await clearArtifacts(); // Clear previous screenshots
@@ -32,6 +32,17 @@ export async function runBatchLookup({ username, password, tin, rows }) {
   const now = new Date().toISOString();
   db.prepare("INSERT INTO jobs(job_id, created_at, status, total, processed) VALUES (?, ?, ?, ?, ?)").run(jobId, now, "running", rows.length, 0);
   console.log(`Job ${jobId} created with ${rows.length} total addresses`);
+  
+  // Send initial progress update
+  if (progressCallback) {
+    progressCallback(jobId, {
+      type: 'job_started',
+      jobId,
+      total: rows.length,
+      processed: 0,
+      message: `Starting batch processing of ${rows.length} addresses`
+    });
+  }
 
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
@@ -76,12 +87,41 @@ export async function runBatchLookup({ username, password, tin, rows }) {
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
             console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
+            
+            // Send progress update
+            if (progressCallback) {
+              progressCallback(jobId, {
+                type: 'address_completed',
+                jobId,
+                total: rows.length,
+                processed: i + 1,
+                currentAddress: address,
+                unit: unit,
+                meterStatus: result.meterStatus,
+                propertyStatus: result.propertyStatus,
+                message: `Completed ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`
+              });
+            }
             console.log(`Result data: address=${address}, meterStatus=${result?.meterStatus}, propertyStatus=${result?.propertyStatus}`);
           } else {
             console.log('No valid status found, will restart from Step 4 for next address');
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
             console.log(`Inserted error result for address ${i + 1}:`, insertResult);
+            
+            // Send progress update for failed address
+            if (progressCallback) {
+              progressCallback(jobId, {
+                type: 'address_failed',
+                jobId,
+                total: rows.length,
+                processed: i + 1,
+                currentAddress: address,
+                unit: unit,
+                error: "No status found",
+                message: `Failed ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} - No status found`
+              });
+            }
             needsFullFlow = true; // Next address needs full flow
           }
         } catch (error) {
@@ -89,6 +129,20 @@ export async function runBatchLookup({ username, password, tin, rows }) {
           console.log(`Full error details:`, error);
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
+          
+          // Send progress update for error
+          if (progressCallback) {
+            progressCallback(jobId, {
+              type: 'address_error',
+              jobId,
+              total: rows.length,
+              processed: i + 1,
+              currentAddress: address,
+              unit: unit,
+              error: error?.message || "Unknown error",
+              message: `Error ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} - ${error?.message || "Unknown error"}`
+            });
+          }
           needsFullFlow = true; // Next address needs full flow
         }
         processed += 1;
@@ -97,9 +151,32 @@ export async function runBatchLookup({ username, password, tin, rows }) {
       }
       console.log(`Batch processing completed. Total addresses processed: ${processed}/${rows.length}`);
       db.prepare("UPDATE jobs SET status = 'completed' WHERE job_id = ?").run(jobId);
+      
+      // Send completion message
+      if (progressCallback) {
+        progressCallback(jobId, {
+          type: 'job_completed',
+          jobId,
+          total: rows.length,
+          processed: processed,
+          message: `Batch processing completed! Processed ${processed}/${rows.length} addresses successfully.`
+        });
+      }
     } catch (e) {
       console.log(`Batch processing failed: ${e.message}`);
       db.prepare("UPDATE jobs SET status = 'failed' WHERE job_id = ?").run(jobId);
+      
+      // Send failure message
+      if (progressCallback) {
+        progressCallback(jobId, {
+          type: 'job_failed',
+          jobId,
+          total: rows.length,
+          processed: processed,
+          error: e.message,
+          message: `Batch processing failed: ${e.message}`
+        });
+      }
     } finally {
       await browser.close();
     }

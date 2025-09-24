@@ -2,10 +2,26 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { parseCsvStream } from "./utils/csv.js";
-import { ensureDatabase } from "../src/persistence/db.js";
+import { ensureDatabase } from "./config/database.js";
 import { runSingleLookup, runBatchLookup } from "./services/batch.js";
 
 const app = express();
+
+// Store active connections for real-time updates
+const activeConnections = new Map();
+
+// Function to send real-time updates to frontend
+function sendProgressUpdate(jobId, data) {
+  const connection = activeConnections.get(jobId);
+  if (connection) {
+    try {
+      connection.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      console.log('Error sending progress update:', error.message);
+      activeConnections.delete(jobId);
+    }
+  }
+}
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
@@ -13,6 +29,31 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+// Server-Sent Events endpoint for real-time progress updates
+app.get("/api/jobs/:jobId/progress", (req, res) => {
+  const { jobId } = req.params;
+  
+  // Set up SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+
+  // Store the connection
+  activeConnections.set(jobId, res);
+
+  // Send initial connection message
+  res.write(`data: ${JSON.stringify({ type: 'connected', jobId })}\n\n`);
+
+  // Clean up on disconnect
+  req.on('close', () => {
+    activeConnections.delete(jobId);
+  });
 });
 
 // Test endpoint to check database persistence
@@ -66,7 +107,13 @@ app.post("/api/batch", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Missing required fields or file" });
     }
     const rows = await parseCsvStream(req.file.buffer);
-    const result = await runBatchLookup({ username, password, tin, rows });
+    
+    // Create progress callback that sends real-time updates
+    const progressCallback = (jobId, data) => {
+      sendProgressUpdate(jobId, data);
+    };
+    
+    const result = await runBatchLookup({ username, password, tin, rows, progressCallback });
     console.log('runBatchLookup returned:', result);
     const jobId = typeof result === 'string' ? result : result.jobId;
     console.log('Extracted jobId:', jobId);

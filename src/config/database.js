@@ -12,7 +12,7 @@ function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-      console.log(`Loaded data from file: ${data.jobs?.length || 0} jobs, ${data.results?.length || 0} results`);
+      // console.log(`Loaded data from file: ${data.jobs?.length || 0} jobs, ${data.results?.length || 0} results`);
       return data;
     }
   } catch (error) {
@@ -29,7 +29,7 @@ function saveData(data) {
       nextResultId: data.getNextResultId()
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2));
-    console.log(`Saved data to file: ${data.jobs.size} jobs, ${data.results.size} results`);
+    // console.log(`Saved data to file: ${data.jobs.size} jobs, ${data.results.size} results`);
   } catch (error) {
     console.log('Error saving data file:', error.message);
   }
@@ -61,12 +61,12 @@ function createDatabase() {
 export function ensureDatabase() {
   if (!databaseInstance) {
     databaseInstance = createDatabase();
-    console.log('Created new database instance at:', new Date().toISOString());
+    // console.log('Created new database instance at:', new Date().toISOString());
   }
   
   const { jobs, results, nextResultId } = databaseInstance;
-  console.log(`Database instance: ${jobs.size} jobs, ${results.size} results`);
-  console.log('Database instance created at:', databaseInstance.createdAt || 'unknown');
+  // console.log(`Database instance: ${jobs.size} jobs, ${results.size} results`);
+  // console.log('Database instance created at:', databaseInstance.createdAt || 'unknown');
   return {
     prepare: (sql) => {
       return {

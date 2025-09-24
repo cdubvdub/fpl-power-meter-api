@@ -61,32 +61,38 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
         const row = rows[i];
         try {
           const { address, unit } = buildAddressAndUnitFromRow(row);
-          console.log(`\n=== Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} ===`);
-          console.log(`Current page URL: ${page.url()}`);
+          // Reduced logging for Railway rate limits
+          if ((i + 1) % 10 === 0 || i === 0) {
+            console.log(`Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`);
+          }
           
           let result;
           if (needsFullFlow) {
             // First address or after a failure - go through full flow
-            console.log('Using full flow for this address...');
+            // console.log('Using full flow for this address...');
             result = await performPostLoginFlow({ page, tin, address, unit });
-            console.log('Full flow completed, result:', result);
+            // console.log('Full flow completed, result:', result);
             needsFullFlow = false; // Next addresses can use "Not the right address?"
           } else {
             // Subsequent addresses - use "Not the right address?" link
-            console.log('Using "Not the right address?" flow for this address...');
-            console.log('Looking for "Not the right address?" link...');
+            // console.log('Using "Not the right address?" flow for this address...');
+            // console.log('Looking for "Not the right address?" link...');
             result = await processNextAddress({ page, tin, address, unit });
-            console.log('"Not the right address?" flow completed, result:', result);
+            // console.log('"Not the right address?" flow completed, result:', result);
           }
           
           // Check if we got valid results
-          console.log(`Result for address ${i + 1}:`, result);
+          if ((i + 1) % 10 === 0 || i === 0) {
+            console.log(`Result for address ${i + 1}:`, result);
+          }
           if (result && (result.meterStatus !== "Not found" || result.propertyStatus !== "Not found")) {
-            console.log(`Successfully processed: Meter=${result.meterStatus}, Property=${result.propertyStatus}`);
+            if ((i + 1) % 10 === 0 || i === 0) {
+              console.log(`Successfully processed: Meter=${result.meterStatus}, Property=${result.propertyStatus}`);
+            }
             const statusCapturedAt = new Date().toISOString();
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
-            console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
+            // console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
             
             // Send progress update
             if (progressCallback) {
@@ -102,12 +108,14 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
                 message: `Completed ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`
               });
             }
-            console.log(`Result data: address=${address}, meterStatus=${result?.meterStatus}, propertyStatus=${result?.propertyStatus}`);
+            // console.log(`Result data: address=${address}, meterStatus=${result?.meterStatus}, propertyStatus=${result?.propertyStatus}`);
           } else {
-            console.log('No valid status found, will restart from Step 4 for next address');
+            if ((i + 1) % 10 === 0 || i === 0) {
+              console.log('No valid status found, will restart from Step 4 for next address');
+            }
             const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
               .run(jobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
-            console.log(`Inserted error result for address ${i + 1}:`, insertResult);
+            // console.log(`Inserted error result for address ${i + 1}:`, insertResult);
             
             // Send progress update for failed address
             if (progressCallback) {
@@ -125,8 +133,10 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
             needsFullFlow = true; // Next address needs full flow
           }
         } catch (error) {
-          console.log(`Error processing address ${i + 1}: ${error.message}`);
-          console.log(`Full error details:`, error);
+          if ((i + 1) % 10 === 0 || i === 0) {
+            console.log(`Error processing address ${i + 1}: ${error.message}`);
+          }
+          // console.log(`Full error details:`, error);
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
           
@@ -147,7 +157,9 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
         }
         processed += 1;
         db.prepare("UPDATE jobs SET processed = ? WHERE job_id = ?").run(processed, jobId);
-        console.log(`Completed address ${i + 1}/${rows.length}. Processed count: ${processed}`);
+        if ((i + 1) % 10 === 0 || i === 0) {
+          console.log(`Completed address ${i + 1}/${rows.length}. Processed count: ${processed}`);
+        }
       }
       console.log(`Batch processing completed. Total addresses processed: ${processed}/${rows.length}`);
       db.prepare("UPDATE jobs SET status = 'completed' WHERE job_id = ?").run(jobId);

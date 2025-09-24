@@ -1,21 +1,61 @@
-// Simple in-memory database for Railway deployment
-// This avoids the better-sqlite3 native compilation issues
+// File-based database for Railway deployment
+// This persists data across service restarts
+import fs from 'fs';
+import path from 'path';
+
+const DATA_FILE = '/tmp/fpl_database.json';
 
 // Use a singleton pattern to ensure data persists across requests
 let databaseInstance = null;
 
-function createDatabase() {
-  const jobs = new Map();
-  const results = new Map();
-  let nextResultId = 1;
+function loadData() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      console.log(`Loaded data from file: ${data.jobs?.length || 0} jobs, ${data.results?.length || 0} results`);
+      return data;
+    }
+  } catch (error) {
+    console.log('Error loading data file:', error.message);
+  }
+  return { jobs: {}, results: {}, nextResultId: 1 };
+}
 
-  return {
+function saveData(data) {
+  try {
+    const dataToSave = {
+      jobs: Object.fromEntries(data.jobs),
+      results: Object.fromEntries(data.results),
+      nextResultId: data.getNextResultId()
+    };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(dataToSave, null, 2));
+    console.log(`Saved data to file: ${data.jobs.size} jobs, ${data.results.size} results`);
+  } catch (error) {
+    console.log('Error saving data file:', error.message);
+  }
+}
+
+function createDatabase() {
+  const fileData = loadData();
+  const jobs = new Map(Object.entries(fileData.jobs || {}));
+  const results = new Map(Object.entries(fileData.results || {}));
+  let nextResultId = fileData.nextResultId || 1;
+
+  const db = {
     jobs,
     results,
     nextResultId: () => nextResultId++,
     getNextResultId: () => nextResultId,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    save: () => saveData(db)
   };
+
+  // Auto-save every 30 seconds
+  setInterval(() => {
+    saveData(db);
+  }, 30000);
+
+  return db;
 }
 
 export function ensureDatabase() {
@@ -34,6 +74,7 @@ export function ensureDatabase() {
           if (sql.includes('INSERT INTO jobs')) {
             const [jobId, createdAt, status, total, processed] = params;
             jobs.set(jobId, { jobId, createdAt, status, total, processed: processed || 0 });
+            databaseInstance.save();
             return { changes: 1, lastInsertRowid: 1 };
           } else if (sql.includes('INSERT OR REPLACE INTO results')) {
             const [jobId, rowIndex, address, unit, meterStatus, propertyStatus, error, createdAt, statusCapturedAt] = params;
@@ -43,6 +84,7 @@ export function ensureDatabase() {
             };
             results.set(id, resultData);
             console.log(`Database mock: stored result ${id} for job ${jobId}:`, resultData);
+            databaseInstance.save();
             return { changes: 1, lastInsertRowid: id };
           } else if (sql.includes('UPDATE jobs SET processed')) {
             const [processed, jobId] = params;
@@ -50,6 +92,7 @@ export function ensureDatabase() {
             if (job) {
               job.processed = processed;
               jobs.set(jobId, job);
+              databaseInstance.save();
             }
             return { changes: 1 };
           } else if (sql.includes('UPDATE jobs SET status')) {
@@ -58,6 +101,7 @@ export function ensureDatabase() {
             if (job) {
               job.status = status;
               jobs.set(jobId, job);
+              databaseInstance.save();
             }
             return { changes: 1 };
           }

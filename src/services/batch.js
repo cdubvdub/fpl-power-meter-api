@@ -57,7 +57,7 @@ export async function runBatchLookup({ username, password, tin, rows }) {
           if (needsFullFlow) {
             // First address or after a failure - go through full flow
             console.log('Using full flow for this address...');
-            result = await performPostLoginFlow({ page, tin, address, unit });
+            result = await performPostLoginFlowFromAccountPage({ page, tin, address, unit });
             console.log('Full flow completed, result:', result);
             needsFullFlow = false; // Next addresses can use "Not the right address?"
           } else {
@@ -185,6 +185,547 @@ async function safeLoginFlow({ page, username, password }) {
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForTimeout(3000);
   await capture(page, 'after-login');
+}
+
+async function performPostLoginFlowFromAccountPage({ page, tin, address, unit }) {
+  // This function starts from the account page after login
+  // Wait for page to load after login
+  await page.waitForLoadState("networkidle");
+  await page.waitForTimeout(3000);
+  
+  // Step 3: Select the account (Kalvaitis Holdings, LLC)
+  console.log('Step 3: Looking for account selection...');
+  await capture(page, 'after-login-account-selection');
+  
+  try {
+    // Look for the specific account link with title "Kalvaitis Holdings, Llc"
+    console.log('Looking for account link with title containing "Kalvaitis Holdings"...');
+    
+    const accountLink = page.locator('a[title*="Kalvaitis Holdings"]').first();
+    if (await accountLink.isVisible({ timeout: 5000 })) {
+      const accountText = await accountLink.textContent();
+      console.log(`Found specific account: "${accountText}", clicking it...`);
+      await accountLink.click({ timeout: 10000 });
+      await page.waitForTimeout(3000);
+    } else {
+      console.log('Account selection failed, trying fallback...');
+      // Fallback: try to click any account link
+      const anyAccountLink = page.locator('a').filter({ hasText: /Kalvait/i }).first();
+      if (await anyAccountLink.isVisible({ timeout: 5000 })) {
+        console.log('Found fallback account link, clicking it...');
+        await anyAccountLink.click({ timeout: 10000 });
+        await page.waitForTimeout(3000);
+      } else {
+        console.log('No account link found, continuing...');
+      }
+    }
+  } catch (error) {
+    console.log('Account selection error:', error.message);
+  }
+
+  // Continue with the rest of the flow from Step 4
+  return await continueFromServicesMenu({ page, tin, address, unit });
+}
+
+async function continueFromServicesMenu({ page, tin, address, unit }) {
+  // Step 4: From the top menu select the "Services" drop down and choose "Start, Stop, Move"
+  console.log('Step 4: Looking for Services menu...');
+  await capture(page, 'services-menu');
+  
+  try {
+    // Look for Services dropdown
+    const servicesMenu = page.getByRole('button', { name: /services/i });
+    if (await servicesMenu.isVisible({ timeout: 5000 })) {
+      console.log('Found Services menu, clicking it...');
+      await servicesMenu.click({ timeout: 10000 });
+      await page.waitForTimeout(2000);
+      
+      // Look for "Start, Stop, Move" option
+      const startStopMove = page.getByRole('link', { name: /start.*stop.*move/i });
+      if (await startStopMove.isVisible({ timeout: 5000 })) {
+        console.log('Found "Start, Stop, Move" option, clicking it...');
+        await startStopMove.click({ timeout: 10000 });
+        await page.waitForTimeout(3000);
+      } else {
+        console.log('Start, Stop, Move option not found, trying alternative...');
+        // Try clicking any link containing "Start" or "Stop" or "Move"
+        const alternative = page.locator('a').filter({ hasText: /start|stop|move/i }).first();
+        if (await alternative.isVisible({ timeout: 5000 })) {
+          console.log('Found alternative option, clicking it...');
+          await alternative.click({ timeout: 10000 });
+          await page.waitForTimeout(3000);
+        }
+      }
+    } else {
+      console.log('Services menu not found, trying direct navigation...');
+      await page.goto('https://www.fpl.com/fpl-app/account/service-orders/region-selector', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(3000);
+    }
+  } catch (error) {
+    console.log('Services menu error:', error.message);
+    // Try direct navigation as fallback
+    await page.goto('https://www.fpl.com/fpl-app/account/service-orders/region-selector', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(3000);
+  }
+
+  // Step 5: On the "Select your region." Page, Select the first "FPL" button (mid-page region selector) then select the "Continue" button
+  console.log('Step 5: Looking for FPL region selector...');
+  await capture(page, 'region-selector');
+  
+  try {
+    // Look for the mid-page FPL region choice button
+    const fplRegionButton = page.locator('a.nee-fpl-region-choice[data-region="fpl"]');
+    if (await fplRegionButton.isVisible({ timeout: 10000 })) {
+      console.log('Found FPL region button, clicking it...');
+      await fplRegionButton.click({ timeout: 10000 });
+      await page.waitForTimeout(2000);
+      
+      // Look for Continue button
+      const continueButton = page.getByRole('button', { name: /continue/i });
+      if (await continueButton.isVisible({ timeout: 5000 })) {
+        console.log('Found Continue button, clicking it...');
+        await continueButton.click({ timeout: 10000 });
+        await page.waitForTimeout(3000);
+      }
+    } else {
+      console.log('FPL region button not found, trying alternative selectors...');
+      // Try alternative selectors
+      const altFplButton = page.locator('a').filter({ hasText: /fpl/i }).first();
+      if (await altFplButton.isVisible({ timeout: 5000 })) {
+        console.log('Found alternative FPL button, clicking it...');
+        await altFplButton.click({ timeout: 10000 });
+        await page.waitForTimeout(2000);
+        
+        const continueBtn = page.getByRole('button', { name: /continue/i });
+        if (await continueBtn.isVisible({ timeout: 5000 })) {
+          await continueBtn.click({ timeout: 10000 });
+          await page.waitForTimeout(3000);
+        }
+      }
+    }
+  } catch (error) {
+    console.log('Region selector error:', error.message);
+  }
+
+  // Step 6: Select Additional Service
+  console.log('Step 6: Looking for Additional Service...');
+  await capture(page, 'additional-service');
+  
+  try {
+    await clickAdditionalServiceSafe(page);
+    await page.waitForTimeout(3000);
+  } catch (error) {
+    console.log('Additional Service error:', error.message);
+    throw error; // This is critical, so re-throw
+  }
+
+  // Step 7: Select business (radio button) and press "continue" button
+  console.log('Step 7: Looking for Business radio button...');
+  await capture(page, 'business-selection');
+  
+  try {
+    // Wait for page to load
+    await page.waitForTimeout(3000);
+    
+    // Try multiple strategies to find and click the Business radio button
+    let businessSelected = false;
+    
+    // Strategy 1: Look for input with value="COMMERCIAL"
+    try {
+      const commercialInput = page.locator('input[name="customerType"][value="COMMERCIAL"]');
+      if (await commercialInput.isVisible({ timeout: 5000 })) {
+        console.log('Found COMMERCIAL input, clicking it...');
+        await commercialInput.click({ timeout: 10000 });
+        businessSelected = true;
+      }
+    } catch (e) {
+      console.log('Strategy 1 failed:', e.message);
+    }
+    
+    // Strategy 2: Look for input with value="COMMERCIAL" (different selector)
+    if (!businessSelected) {
+      try {
+        const commercialInput2 = page.locator('input[value="COMMERCIAL"]');
+        if (await commercialInput2.isVisible({ timeout: 5000 })) {
+          console.log('Found COMMERCIAL input (strategy 2), clicking it...');
+          await commercialInput2.click({ timeout: 10000 });
+          businessSelected = true;
+        }
+      } catch (e) {
+        console.log('Strategy 2 failed:', e.message);
+      }
+    }
+    
+    // Strategy 3: Look for radio button near "Business" text
+    if (!businessSelected) {
+      try {
+        const businessRadio = page.locator('input[type="radio"]').filter({ hasText: /business/i });
+        if (await businessRadio.isVisible({ timeout: 5000 })) {
+          console.log('Found Business radio button (strategy 3), clicking it...');
+          await businessRadio.click({ timeout: 10000 });
+          businessSelected = true;
+        }
+      } catch (e) {
+        console.log('Strategy 3 failed:', e.message);
+      }
+    }
+    
+    // Strategy 4: Look for visible SVG element (the radio button visual)
+    if (!businessSelected) {
+      try {
+        const radioSvg = page.locator('svg.q-radio__bg').first();
+        if (await radioSvg.isVisible({ timeout: 5000 })) {
+          console.log('Found radio SVG element, clicking it...');
+          await radioSvg.click({ timeout: 10000 });
+          businessSelected = true;
+        }
+      } catch (e) {
+        console.log('Strategy 4 failed:', e.message);
+      }
+    }
+    
+    // Strategy 5: JavaScript fallback to click hidden input
+    if (!businessSelected) {
+      try {
+        console.log('Trying JavaScript fallback to click Business radio button...');
+        await page.evaluate(() => {
+          const inputs = document.querySelectorAll('input[type="radio"]');
+          for (const input of inputs) {
+            const label = input.closest('label') || input.parentElement;
+            if (label && label.textContent && label.textContent.toLowerCase().includes('business')) {
+              input.checked = true;
+              input.dispatchEvent(new Event('change', { bubbles: true }));
+              console.log('Business radio button selected via JavaScript');
+              return true;
+            }
+          }
+          return false;
+        });
+        businessSelected = true;
+      } catch (e) {
+        console.log('JavaScript fallback failed:', e.message);
+      }
+    }
+    
+    if (!businessSelected) {
+      console.log('Could not select Business radio button');
+    }
+    
+    // Click Continue button
+    const continueButton = page.getByRole('button', { name: /continue/i });
+    if (await continueButton.isVisible({ timeout: 5000 })) {
+      console.log('Found Continue button, clicking it...');
+      await continueButton.click({ timeout: 10000 });
+      await page.waitForTimeout(3000);
+    } else {
+      console.log('Continue button not found');
+    }
+  } catch (error) {
+    console.log('Business selection error:', error.message);
+  }
+
+  // Continue with the rest of the steps...
+  return await continueFromStep8({ page, tin, address, unit });
+}
+
+async function continueFromStep8({ page, tin, address, unit }) {
+  // Step 8: Next button after Business selection
+  console.log('Step 8: Looking for Next button after Business selection...');
+  try {
+    await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    await capture(page, 'after-step-8-next');
+  } catch (e) {
+    console.log('Step 8 Next button failed:', e.message);
+    await capture(page, 'step-8-next-failed');
+  }
+
+  // Step 9: Master account? No -> Next
+  console.log('Step 9: Looking for master account question...');
+  try {
+    const noRadio = page.getByLabel(/^No$/i);
+    if (await noRadio.isVisible({ timeout: 5000 })) {
+      console.log('Found No radio button for master account, clicking it...');
+      await noRadio.check({ timeout: 5000 });
+    } else {
+      console.log('No radio button not found, trying first radio button...');
+      await page.locator('div.q-radio__inner input[type="radio"]').first().check({ timeout: 5000 });
+    }
+    await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    await capture(page, 'after-master-account');
+  } catch (e) {
+    console.log('Step 9 master account failed:', e.message);
+    await capture(page, 'step-9-master-account-failed');
+  }
+
+  // Step 10: TIN, Business Type, Person Name
+  console.log('Step 10: Filling TIN and business details...');
+  try {
+    // Fill TIN
+    const tinInput = page.getByLabel(/TIN/i);
+    if (await tinInput.isVisible({ timeout: 5000 })) {
+      console.log('Found TIN input, filling it...');
+      await tinInput.fill(tin);
+    } else {
+      console.log('TIN input not found, trying alternative selector...');
+      await page.locator('input[aria-label*="TIN"]').fill(tin);
+    }
+    
+    // Select U.S. Business radio button
+    const usBusinessRadio = page.getByLabel(/U\.S\. Business/i);
+    if (await usBusinessRadio.isVisible({ timeout: 5000 })) {
+      console.log('Found U.S. Business radio button, clicking it...');
+      await usBusinessRadio.check({ timeout: 5000 });
+    } else {
+      console.log('U.S. Business radio not found, trying alternative...');
+      await page.locator('input[type="radio"]').filter({ hasText: /U\.S\. Business/i }).first().check({ timeout: 5000 });
+    }
+    
+    // Fill Person Making Request
+    const personInput = page.getByLabel(/Person Making Request/i);
+    if (await personInput.isVisible({ timeout: 5000 })) {
+      console.log('Found Person Making Request input, filling it...');
+      await personInput.fill('Devin');
+    } else {
+      console.log('Person Making Request input not found, trying alternative...');
+      await page.locator('input[aria-label*="Person Making Request"]').fill('Devin');
+    }
+    
+    // Click Next
+    await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    await capture(page, 'after-step-10');
+  } catch (e) {
+    console.log('Step 10 failed:', e.message);
+    await capture(page, 'step-10-failed');
+  }
+
+  // Step 11: Property Use dropdown and mailing address
+  console.log('Step 11: Setting property use and mailing address...');
+  try {
+    // Property Use dropdown
+    const propertyUseDropdown = page.getByLabel(/Property Use/i);
+    if (await propertyUseDropdown.isVisible({ timeout: 5000 })) {
+      console.log('Found Property Use dropdown, clicking it...');
+      await propertyUseDropdown.click({ timeout: 10000 });
+      await page.waitForTimeout(1000);
+      
+      // Look for "Property Manager needing service between tenants"
+      const propertyManagerOption = page.getByText(/Property Manager.*tenants/i);
+      if (await propertyManagerOption.isVisible({ timeout: 5000 })) {
+        console.log('Found Property Manager option, clicking it...');
+        await propertyManagerOption.click({ timeout: 10000 });
+      } else {
+        console.log('Property Manager option not found, trying alternative...');
+        await page.locator('div.q-item').filter({ hasText: /Property Manager/i }).first().click({ timeout: 10000 });
+      }
+    } else {
+      console.log('Property Use dropdown not found, trying alternative selectors...');
+      // Try clicking the container div
+      const dropdownContainer = page.locator('div.q-field__native').first();
+      if (await dropdownContainer.isVisible({ timeout: 5000 })) {
+        console.log('Found dropdown container, clicking it...');
+        await dropdownContainer.click({ timeout: 10000 });
+        await page.waitForTimeout(1000);
+        
+        const propertyManagerOption = page.getByText(/Property Manager.*tenants/i);
+        if (await propertyManagerOption.isVisible({ timeout: 5000 })) {
+          await propertyManagerOption.click({ timeout: 10000 });
+        }
+      }
+    }
+    
+    // Mailing address checkbox
+    const mailingCheckbox = page.getByLabel(/mailing address will be the same/i);
+    if (await mailingCheckbox.isVisible({ timeout: 5000 })) {
+      console.log('Found mailing address checkbox, clicking it...');
+      await mailingCheckbox.check({ timeout: 5000 });
+    } else {
+      console.log('Mailing address checkbox not found, trying alternative...');
+      await page.locator('input[type="checkbox"]').filter({ hasText: /mailing address/i }).first().check({ timeout: 5000 });
+    }
+    
+    // Click Next
+    await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    await capture(page, 'after-step-11');
+  } catch (e) {
+    console.log('Step 11 failed:', e.message);
+    await capture(page, 'step-11-failed');
+  }
+
+  // Step 12: Confirm property
+  console.log('Step 12: Confirming property...');
+  try {
+    const confirmPropertyRadio = page.getByLabel(/Confirm property/i);
+    if (await confirmPropertyRadio.isVisible({ timeout: 5000 })) {
+      console.log('Found Confirm property radio button, clicking it...');
+      await confirmPropertyRadio.check({ timeout: 5000 });
+    } else {
+      console.log('Confirm property radio not found, trying alternative...');
+      await page.locator('input[type="radio"]').filter({ hasText: /Confirm property/i }).first().check({ timeout: 5000 });
+    }
+    
+    await page.waitForTimeout(1000);
+    await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
+    await page.waitForTimeout(2000);
+    await capture(page, 'after-step-12');
+  } catch (e) {
+    console.log('Step 12 failed:', e.message);
+    await capture(page, 'step-12-failed');
+  }
+
+  // Step 13: Address and Unit
+  console.log('Step 13: Filling address and unit...');
+  try {
+    // Fill address
+    const addressInput = page.getByLabel(/Address/i);
+    if (await addressInput.isVisible({ timeout: 5000 })) {
+      console.log('Found address input, filling it...');
+      await addressInput.fill(address);
+    } else {
+      console.log('Address input not found, trying alternative...');
+      await page.locator('input[aria-label*="Address"]').fill(address);
+    }
+    
+    // Fill unit if provided
+    if (unit) {
+      const unitInput = page.getByLabel(/Apt/i);
+      if (await unitInput.isVisible({ timeout: 5000 })) {
+        console.log('Found unit input, filling it...');
+        await unitInput.fill(unit);
+      } else {
+        console.log('Unit input not found, trying alternative...');
+        await page.locator('input[aria-label*="Apt"]').fill(unit);
+      }
+    }
+    
+    // Click Search
+    const searchButton = page.getByRole('button', { name: /search/i });
+    if (await searchButton.isVisible({ timeout: 5000 })) {
+      console.log('Found Search button, clicking it...');
+      await searchButton.click({ timeout: 10000 });
+      await page.waitForTimeout(3000);
+    } else {
+      console.log('Search button not found, trying alternative...');
+      await page.locator('button').filter({ hasText: /search/i }).first().click({ timeout: 10000 });
+      await page.waitForTimeout(3000);
+    }
+    
+    await capture(page, 'after-search');
+  } catch (e) {
+    console.log('Step 13 failed:', e.message);
+    await capture(page, 'step-13-failed');
+  }
+
+  // Step 14: Unit confirmation (if unit provided)
+  if (unit) {
+    console.log('Step 14: Confirming unit number...');
+    try {
+      const unitConfirmInput = page.getByLabel(/Unit/i);
+      if (await unitConfirmInput.isVisible({ timeout: 5000 })) {
+        console.log('Found unit confirmation input, filling it...');
+        await unitConfirmInput.fill(unit);
+        await page.waitForTimeout(1000);
+        
+        // Select from dropdown
+        const unitOption = page.locator('div.q-item').filter({ hasText: unit }).first();
+        if (await unitOption.isVisible({ timeout: 5000 })) {
+          console.log('Found unit option in dropdown, clicking it...');
+          await unitOption.click({ timeout: 10000 });
+        }
+        
+        // Click Next
+        const nextButton = page.getByRole('button', { name: /next/i });
+        if (await nextButton.isVisible({ timeout: 5000 })) {
+          console.log('Found Next button, clicking it...');
+          await nextButton.click({ timeout: 10000 });
+          await page.waitForTimeout(2000);
+        }
+      }
+      await capture(page, 'after-unit-confirmation');
+    } catch (e) {
+      console.log('Step 14 unit confirmation failed:', e.message);
+      await capture(page, 'step-14-failed');
+    }
+  }
+
+  // Step 15: Confirm
+  console.log('Step 15: Confirming selection...');
+  try {
+    const confirmButton = page.getByRole('button', { name: /confirm/i });
+    if (await confirmButton.isVisible({ timeout: 5000 })) {
+      console.log('Found Confirm button, clicking it...');
+      await confirmButton.click({ timeout: 10000 });
+    } else {
+      console.log('Confirm button not found, trying alternative...');
+      await page.locator('button').filter({ hasText: /confirm/i }).first().click({ timeout: 10000 });
+    }
+    
+    await page.waitForTimeout(8000); // Wait for status page to load
+    await capture(page, 'after-confirm');
+  } catch (e) {
+    console.log('Step 15 confirm failed:', e.message);
+    await capture(page, 'step-15-failed');
+  }
+
+  // Step 16: Extract statuses
+  console.log('Step 16: Extracting meter and property status...');
+  try {
+    let meterStatus = "Not found";
+    let propertyStatus = "Not found";
+    
+    // Try to find meter status
+    try {
+      const meterElement = page.locator('p').filter({ hasText: /meter status/i }).first();
+      if (await meterElement.isVisible({ timeout: 5000 })) {
+        const meterText = await meterElement.textContent();
+        meterStatus = meterText.replace(/meter status/i, '').trim();
+        console.log('Found meter status:', meterStatus);
+      }
+    } catch (e) {
+      console.log('Meter status extraction failed:', e.message);
+    }
+    
+    // Try to find property status
+    try {
+      const propertyElement = page.locator('p.nee-fpl-property-status');
+      if (await propertyElement.isVisible({ timeout: 5000 })) {
+        propertyStatus = await propertyElement.textContent();
+        console.log('Found property status:', propertyStatus);
+      } else {
+        // Fallback: look for text near "Property Status"
+        const propertyText = page.locator('p').filter({ hasText: /property status/i }).first();
+        if (await propertyText.isVisible({ timeout: 5000 })) {
+          const text = await propertyText.textContent();
+          propertyStatus = text.replace(/property status/i, '').trim();
+          console.log('Found property status (fallback):', propertyStatus);
+        }
+      }
+    } catch (e) {
+      console.log('Property status extraction failed:', e.message);
+    }
+    
+    await capture(page, 'final-status');
+    
+    return {
+      address,
+      unit: unit || null,
+      meterStatus,
+      propertyStatus
+    };
+  } catch (e) {
+    console.log('Step 16 status extraction failed:', e.message);
+    await capture(page, 'step-16-failed');
+    return {
+      address,
+      unit: unit || null,
+      meterStatus: "Not found",
+      propertyStatus: "Not found"
+    };
+  }
 }
 
 async function performPostLoginFlow({ page, tin, address, unit }) {

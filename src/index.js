@@ -72,6 +72,7 @@ app.post("/api/batch", upload.single("file"), async (req, res) => {
     console.log('Extracted jobId:', jobId);
     console.log('JobId type:', typeof jobId);
     console.log('Deployment timestamp:', new Date().toISOString());
+    console.log('Force restart timestamp:', new Date().toISOString()); // Force restart
     res.json({ jobId, message: "Batch processing started" });
   } catch (error) {
     res.status(500).json({ error: error?.message || "Batch processing failed" });

@@ -106,8 +106,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
               .run(jobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
             // console.log(`Inserted result for address ${i + 1} with jobId: ${jobId}`, insertResult);
             
-            // Send progress update only every 10th address to reduce SSE frequency
-            if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
+            // Send progress update for every address (reverted for better UX)
+            if (progressCallback) {
               progressCallback(jobId, {
                 type: 'address_completed',
                 jobId,
@@ -129,8 +129,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
               .run(jobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
             // console.log(`Inserted error result for address ${i + 1}:`, insertResult);
             
-            // Send progress update for failed address only every 10th address
-            if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
+            // Send progress update for failed address (reverted for better UX)
+            if (progressCallback) {
               progressCallback(jobId, {
                 type: 'address_failed',
                 jobId,
@@ -152,8 +152,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
             .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
           
-          // Send progress update for error only every 10th address
-          if (progressCallback && ((i + 1) % 10 === 0 || i === 0)) {
+          // Send progress update for error (reverted for better UX)
+          if (progressCallback) {
             progressCallback(jobId, {
               type: 'address_error',
               jobId,

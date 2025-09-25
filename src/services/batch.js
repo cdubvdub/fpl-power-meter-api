@@ -66,8 +66,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
       
       for (let i = 0; i < rows.length; i += 1) {
         const row = rows[i];
+        const { address, unit } = buildAddressAndUnitFromRow(row);
         try {
-          const { address, unit } = buildAddressAndUnitFromRow(row);
           // Reduced logging for Railway rate limits - only every 25th address
           if ((i + 1) % 25 === 0 || i === 0) {
             console.log(`Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`);
@@ -149,8 +149,13 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
             console.log(`Error processing address ${i + 1}: ${error.message}`);
           }
           // console.log(`Full error details:`, error);
+          
+          // Ensure address and unit are defined for error handling
+          const errorAddress = address || `Row ${i + 1}`;
+          const errorUnit = unit || null;
+          
           db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .run(jobId, i, address, unit || null, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
+            .run(jobId, i, errorAddress, errorUnit, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
           
           // Send progress update for error (reverted for better UX)
           if (progressCallback) {
@@ -159,10 +164,10 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
               jobId,
               total: rows.length,
               processed: i + 1,
-              currentAddress: address,
-              unit: unit,
+              currentAddress: errorAddress,
+              unit: errorUnit,
               error: error?.message || "Unknown error",
-              message: `Error ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} - ${error?.message || "Unknown error"}`
+              message: `Error ${i + 1}/${rows.length}: ${errorAddress}${errorUnit ? ` (Unit: ${errorUnit})` : ''} - ${error?.message || "Unknown error"}`
             });
           }
           needsFullFlow = true; // Next address needs full flow
@@ -188,18 +193,38 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
       }
     } catch (e) {
       console.log(`Batch processing failed: ${e.message}`);
-      db.prepare("UPDATE jobs SET status = 'failed' WHERE job_id = ?").run(jobId);
+      console.log(`Error details:`, e);
       
-      // Send failure message
-      if (progressCallback) {
-        progressCallback(jobId, {
-          type: 'job_failed',
-          jobId,
-          total: rows.length,
-          processed: processed,
-          error: e.message,
-          message: `Batch processing failed: ${e.message}`
-        });
+      // Don't mark as failed if we've processed some addresses successfully
+      if (processed > 0) {
+        console.log(`Marking job as completed with ${processed} addresses processed despite error`);
+        db.prepare("UPDATE jobs SET status = 'completed' WHERE job_id = ?").run(jobId);
+        
+        // Send completion message instead of failure
+        if (progressCallback) {
+          progressCallback(jobId, {
+            type: 'job_completed',
+            jobId,
+            total: rows.length,
+            processed: processed,
+            message: `Batch processing completed with ${processed}/${rows.length} addresses processed. Some addresses may have failed.`
+          });
+        }
+      } else {
+        // Only mark as failed if no addresses were processed
+        db.prepare("UPDATE jobs SET status = 'failed' WHERE job_id = ?").run(jobId);
+        
+        // Send failure message
+        if (progressCallback) {
+          progressCallback(jobId, {
+            type: 'job_failed',
+            jobId,
+            total: rows.length,
+            processed: processed,
+            error: e.message,
+            message: `Batch processing failed: ${e.message}`
+          });
+        }
       }
     } finally {
       await browser.close();

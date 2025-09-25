@@ -431,13 +431,13 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     }
   } catch (e) {
     console.log('Account selection failed:', e.message);
-    await capture(page, 'account-selection-failed');
+    await page.waitForTimeout(1000);
+    // await capture(page, 'account-selection-failed');
   }
   
   // Step 4: From the top menu select the "Services" drop down and choose "Start, Stop, Move"
   console.log('Step 4: Looking for Services dropdown...');
   // await capture(page, 'before-services-dropdown');
-  await page.waitForTimeout(1000); // Allow services dropdown to load
   
   try {
     // Look for Services dropdown in top menu
@@ -757,7 +757,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
-    await capture(page, 'after-tin-fields');
+    // await capture(page, 'after-tin-fields');
   } catch (e) {
     console.log('Step 10 TIN fields failed:', e.message);
     // await capture(page, 'step-10-tin-fields-failed');
@@ -1358,7 +1358,7 @@ async function processNextAddress({ page, tin, address, unit }) {
       console.log('Clicking "Not the right address?" link...');
       await notRightAddressLink.click();
       await page.waitForTimeout(3000);
-      await capture(page, 'after-not-right-address-click');
+      // await capture(page, 'after-not-right-address-click');
     } else {
       console.log('"Not the right address?" link not found with any selector, falling back to full flow');
       console.log('Current page URL:', page.url());
@@ -1456,14 +1456,16 @@ async function processNextAddress({ page, tin, address, unit }) {
           if (dropdownResult.success) {
             console.log(`Successfully clicked dropdown option: "${dropdownResult.clicked}"`);
             await page.waitForTimeout(2000);
-            await capture(page, 'after-repeat-dropdown-selection');
+            // await capture(page, 'after-repeat-dropdown-selection');
           } else {
             console.log(`No clickable dropdown options found (${dropdownResult.count} elements found but none clickable)`);
-            await capture(page, 'no-repeat-dropdown-selection');
+            await page.waitForTimeout(2000);
+            // await capture(page, 'no-repeat-dropdown-selection');
           }
         } catch (e) {
           console.log('Dropdown selection failed:', e.message);
-          await capture(page, 'repeat-dropdown-selection-failed');
+          await page.waitForTimeout(2000);
+          // await capture(page, 'repeat-dropdown-selection-failed');
         }
       } else {
         console.log('Address input not found');
@@ -1521,7 +1523,8 @@ async function processNextAddress({ page, tin, address, unit }) {
         }
         await page.waitForTimeout(3000);
         console.log('Page loaded after search');
-        await capture(page, 'after-repeat-search');
+        await page.waitForTimeout(2000);
+        // await capture(page, 'after-repeat-search');
       } catch (e) {
         console.log('Search button click failed:', e.message);
       }
@@ -1608,12 +1611,13 @@ async function processNextAddress({ page, tin, address, unit }) {
         if (confirmClicked) {
           console.log('Confirm button clicked successfully');
           await page.waitForTimeout(3000);
-          await capture(page, 'after-repeat-confirm');
+          // await capture(page, 'after-repeat-confirm');
           
           // Handle Unit/Apt number if provided (Step 13.5)
           if (unit) {
             console.log('Step 13.5 (repeat): Handling Unit/Apt number...');
-            await capture(page, 'before-repeat-unit-entry');
+            await page.waitForTimeout(2000);
+            // await capture(page, 'before-repeat-unit-entry');
             
             try {
               // Look for the Unit# input field
@@ -1671,7 +1675,7 @@ async function processNextAddress({ page, tin, address, unit }) {
                     console.log('Found Next button, clicking it...');
                     await nextButton.click();
                     await page.waitForTimeout(3000);
-                    await capture(page, 'after-repeat-unit-next');
+                    // await capture(page, 'after-repeat-unit-next');
                   } else {
                     console.log('Next button not found after unit selection');
                   }
@@ -1683,7 +1687,8 @@ async function processNextAddress({ page, tin, address, unit }) {
               }
             } catch (e) {
               console.log('Unit handling failed:', e.message);
-              await capture(page, 'repeat-unit-handling-failed');
+              await page.waitForTimeout(2000);
+              // await capture(page, 'repeat-unit-handling-failed');
             }
           }
           
@@ -1691,11 +1696,13 @@ async function processNextAddress({ page, tin, address, unit }) {
           await page.waitForTimeout(8000); // Wait 8 seconds for status page to load
         } else {
           console.log('Confirm button not found with any strategy');
-          await capture(page, 'repeat-confirm-click-failed');
+          await page.waitForTimeout(2000);
+          // await capture(page, 'repeat-confirm-click-failed');
         }
       } catch (e) {
         console.log('Step 13 Confirm failed:', e.message);
-        await capture(page, 'repeat-confirm-click-failed');
+        await page.waitForTimeout(2000);
+        // await capture(page, 'repeat-confirm-click-failed');
       }
       
       // Read statuses (Step 14)
@@ -1739,7 +1746,8 @@ async function processNextAddress({ page, tin, address, unit }) {
         console.log('Property Status reading failed:', e.message);
       }
       
-      await capture(page, 'after-repeat-status-reading');
+      await page.waitForTimeout(2000);
+      // await capture(page, 'after-repeat-status-reading');
       
       return {
         meterStatus: meterStatus || "Not found",

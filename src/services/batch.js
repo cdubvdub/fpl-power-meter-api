@@ -23,6 +23,220 @@ export async function runSingleLookup({ username, password, tin, address, unit }
   }
 }
 
+export async function runBatchLookupWithJobId({ username, password, tin, rows, masterJobId, batchIndex, totalBatches, progressCallback }) {
+  console.log('Starting batch lookup with master job ID...');
+  
+  // Limit batch size to prevent Railway rate limits
+  const MAX_BATCH_SIZE = 50;
+  if (rows.length > MAX_BATCH_SIZE) {
+    throw new Error(`Batch size too large. Maximum ${MAX_BATCH_SIZE} addresses allowed. Please split your CSV into smaller files.`);
+  }
+  
+  console.log(`Processing ${rows.length} addresses (max ${MAX_BATCH_SIZE}) for master job ${masterJobId}`);
+  await clearArtifacts(); // Clear previous screenshots
+  const db = ensureDatabase();
+  
+  // Send initial progress update
+  if (progressCallback) {
+    progressCallback(masterJobId, {
+      type: 'batch_started',
+      jobId: masterJobId,
+      total: rows.length,
+      batchIndex: batchIndex,
+      totalBatches: totalBatches,
+      message: `Starting batch ${batchIndex}/${totalBatches} with ${rows.length} addresses`
+    });
+  }
+
+  // Fire-and-forget async processing; keep session during the whole run
+  void (async () => {
+    const headless = process.env.HEADLESS !== "false";
+    const browser = await chromium.launch({ headless });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    let processed = 0;
+    let needsFullFlow = true; // Track if we need to go through full flow or can use "Not the right address?"
+    
+    try {
+      // Pre-login once, reuse session
+      await safeLoginFlow({ page, username, password });
+      
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        const { address, unit } = buildAddressAndUnitFromRow(row);
+        try {
+          // Reduced logging for Railway rate limits - only every 25th address
+          if ((i + 1) % 25 === 0 || i === 0) {
+            console.log(`Processing address ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`);
+          }
+          
+          // Add delay between addresses to reduce processing pressure
+          if (i > 0) {
+            await page.waitForTimeout(2000); // 2 second delay between addresses
+          }
+          
+          let result;
+          if (needsFullFlow) {
+            // First address or after a failure - go through full flow
+            // console.log('Using full flow for this address...');
+            result = await performPostLoginFlow({ page, tin, address, unit });
+            // console.log('Full flow completed, result:', result);
+            needsFullFlow = false; // Next addresses can use "Not the right address?"
+          } else {
+            // Subsequent addresses - use "Not the right address?" link
+            // console.log('Using "Not the right address?" flow for this address...');
+            // console.log('Looking for "Not the right address?" link...');
+            result = await processNextAddress({ page, tin, address, unit });
+            // console.log('"Not the right address?" flow completed, result:', result);
+          }
+          
+          // Check if we got valid results
+          if ((i + 1) % 10 === 0 || i === 0) {
+            console.log(`Result for address ${i + 1}:`, result);
+          }
+          if (result && (result.meterStatus !== "Not found" || result.propertyStatus !== "Not found")) {
+            if ((i + 1) % 10 === 0 || i === 0) {
+              console.log(`Successfully processed: Meter=${result.meterStatus}, Property=${result.propertyStatus}`);
+            }
+            const statusCapturedAt = new Date().toISOString();
+            const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .run(masterJobId, i, address, unit || null, result?.meterStatus || null, result?.propertyStatus || null, null, new Date().toISOString(), statusCapturedAt);
+            // console.log(`Inserted result for address ${i + 1} with jobId: ${masterJobId}`, insertResult);
+            
+            // Send progress update for every address (reverted for better UX)
+            if (progressCallback) {
+              progressCallback(masterJobId, {
+                type: 'address_completed',
+                jobId: masterJobId,
+                total: rows.length,
+                processed: i + 1,
+                currentAddress: address,
+                unit: unit,
+                meterStatus: result.meterStatus,
+                propertyStatus: result.propertyStatus,
+                batchIndex: batchIndex,
+                totalBatches: totalBatches,
+                message: `Completed ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''}`
+              });
+            }
+            // console.log(`Result data: address=${address}, meterStatus=${result?.meterStatus}, propertyStatus=${result?.propertyStatus}`);
+          } else {
+            if ((i + 1) % 10 === 0 || i === 0) {
+              console.log('No valid status found, will restart from Step 4 for next address');
+            }
+            const insertResult = db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .run(masterJobId, i, address, unit || null, null, null, "No status found", new Date().toISOString(), null);
+            // console.log(`Inserted error result for address ${i + 1}:`, insertResult);
+            
+            // Send progress update for failed address (reverted for better UX)
+            if (progressCallback) {
+              progressCallback(masterJobId, {
+                type: 'address_failed',
+                jobId: masterJobId,
+                total: rows.length,
+                processed: i + 1,
+                currentAddress: address,
+                unit: unit,
+                error: "No status found",
+                batchIndex: batchIndex,
+                totalBatches: totalBatches,
+                message: `Failed ${i + 1}/${rows.length}: ${address}${unit ? ` (Unit: ${unit})` : ''} - No status found`
+              });
+            }
+            needsFullFlow = true; // Next address needs full flow
+          }
+        } catch (error) {
+          if ((i + 1) % 10 === 0 || i === 0) {
+            console.log(`Error processing address ${i + 1}: ${error.message}`);
+          }
+          // console.log(`Full error details:`, error);
+          
+          // Ensure address and unit are defined for error handling
+          const errorAddress = address || `Row ${i + 1}`;
+          const errorUnit = unit || null;
+          
+          db.prepare("INSERT OR REPLACE INTO results(job_id, row_index, address, unit, meter_status, property_status, error, created_at, status_captured_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            .run(masterJobId, i, errorAddress, errorUnit, null, null, error?.message || "Unknown error", new Date().toISOString(), null);
+          
+          // Send progress update for error (reverted for better UX)
+          if (progressCallback) {
+            progressCallback(masterJobId, {
+              type: 'address_error',
+              jobId: masterJobId,
+              total: rows.length,
+              processed: i + 1,
+              currentAddress: errorAddress,
+              unit: errorUnit,
+              error: error?.message || "Unknown error",
+              batchIndex: batchIndex,
+              totalBatches: totalBatches,
+              message: `Error ${i + 1}/${rows.length}: ${errorAddress}${errorUnit ? ` (Unit: ${errorUnit})` : ''} - ${error?.message || "Unknown error"}`
+            });
+          }
+          needsFullFlow = true; // Next address needs full flow
+        }
+        processed += 1;
+        if ((i + 1) % 10 === 0 || i === 0) {
+          console.log(`Completed address ${i + 1}/${rows.length}. Processed count: ${processed}`);
+        }
+      }
+      console.log(`Batch processing completed. Total addresses processed: ${processed}/${rows.length}`);
+      
+      // Send batch completion message
+      if (progressCallback) {
+        progressCallback(masterJobId, {
+          type: 'batch_completed',
+          jobId: masterJobId,
+          total: rows.length,
+          processed: processed,
+          batchIndex: batchIndex,
+          totalBatches: totalBatches,
+          message: `Completed batch ${batchIndex}/${totalBatches} (${batch.length} addresses)`
+        });
+      }
+    } catch (e) {
+      console.log(`Batch processing failed: ${e.message}`);
+      console.log(`Error details:`, e);
+      
+      // Don't mark as failed if we've processed some addresses successfully
+      if (processed > 0) {
+        console.log(`Marking batch as completed with ${processed} addresses processed despite error`);
+        
+        // Send completion message instead of failure
+        if (progressCallback) {
+          progressCallback(masterJobId, {
+            type: 'batch_completed',
+            jobId: masterJobId,
+            total: rows.length,
+            processed: processed,
+            batchIndex: batchIndex,
+            totalBatches: totalBatches,
+            message: `Batch ${batchIndex}/${totalBatches} completed with ${processed}/${rows.length} addresses processed. Some addresses may have failed.`
+          });
+        }
+      } else {
+        // Send failure message
+        if (progressCallback) {
+          progressCallback(masterJobId, {
+            type: 'batch_failed',
+            jobId: masterJobId,
+            total: rows.length,
+            processed: processed,
+            batchIndex: batchIndex,
+            totalBatches: totalBatches,
+            error: e.message,
+            message: `Batch ${batchIndex}/${totalBatches} failed: ${e.message}`
+          });
+        }
+      }
+    } finally {
+      await browser.close();
+    }
+  })();
+
+  return { jobId: masterJobId, total: rows.length };
+}
+
 export async function runBatchLookup({ username, password, tin, rows, progressCallback }) {
   console.log('Starting batch lookup...');
   
@@ -275,12 +489,15 @@ export async function runQueueBatchLookup({ username, password, tin, rows, progr
     console.log(`Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} addresses)`);
     
     try {
-      // Process this batch
-      const result = await runBatchLookup({ 
+      // Process this batch with the master job ID
+      const result = await runBatchLookupWithJobId({ 
         username, 
         password, 
         tin, 
         rows: batch, 
+        masterJobId,
+        batchIndex: batchIndex + 1,
+        totalBatches: batches.length,
         progressCallback: (jobId, data) => {
           // Update jobId to master job
           data.jobId = masterJobId;

@@ -655,7 +655,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   // Step 3: Select the account (Kalvaitis Holdings, LLC)
   console.log('Step 3: Looking for account selection...');
-  // await capture(page, 'after-login-account-selection');
+  await capture(page, 'after-login-account-selection');
   await page.waitForTimeout(1000); // Allow account selection to complete
   
   try {
@@ -670,17 +670,17 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
       await page.waitForTimeout(3000);
     } else {
       console.log('Account selection failed, trying fallback...');
-      // await capture(page, 'account-selection-failed');
+      await capture(page, 'account-selection-failed');
     }
   } catch (e) {
     console.log('Account selection failed:', e.message);
     await page.waitForTimeout(1000);
-    // await capture(page, 'account-selection-failed');
+    await capture(page, 'account-selection-failed');
   }
   
   // Step 4: From the top menu select the "Services" drop down and choose "Start, Stop, Move"
   console.log('Step 4: Looking for Services dropdown...');
-  // await capture(page, 'before-services-dropdown');
+  await capture(page, 'before-services-dropdown');
   
   try {
     // Look for Services dropdown in top menu
@@ -698,20 +698,20 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         await page.waitForTimeout(3000);
       } else {
         console.log('Start, Stop, Move option not found');
-        // await capture(page, 'start-stop-move-not-found');
+        await capture(page, 'start-stop-move-not-found');
       }
     } else {
       console.log('Services dropdown not found');
-      // await capture(page, 'services-dropdown-not-found');
+      await capture(page, 'services-dropdown-not-found');
     }
   } catch (e) {
     console.log('Services dropdown failed:', e.message);
-    // await capture(page, 'services-dropdown-failed');
+    await capture(page, 'services-dropdown-failed');
   }
   
   // Step 5: On the "Select your region." Page, Select the first "FPL" button
   console.log('Step 5: Looking for region selection...');
-  // await capture(page, 'before-region-selection');
+  await capture(page, 'before-region-selection');
   await page.waitForTimeout(1000); // Allow region selection page to load
   
   try {
@@ -734,7 +734,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
       }
     } else {
       console.log('FPL region choice not found, trying fallback...');
-      // await capture(page, 'fpl-region-choice-not-found');
+      await capture(page, 'fpl-region-choice-not-found');
       
       // Fallback: try the region map approach
       const regionMap = page.locator(".nee-fpl-region-map");
@@ -746,17 +746,17 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         await page.waitForTimeout(2000);
       } else {
         console.log('Region map not found either');
-        // await capture(page, 'region-map-not-found');
+        await capture(page, 'region-map-not-found');
       }
     }
   } catch (e) {
     console.log('Region selection failed:', e.message);
-    // await capture(page, 'region-selection-failed');
+    await capture(page, 'region-selection-failed');
   }
   
   // Step 6: Select Additional Service
   console.log('Step 6: Looking for Additional Service...');
-  // await capture(page, 'before-additional-service');
+  await capture(page, 'before-additional-service');
   await page.waitForTimeout(1000); // Allow additional service page to load
   
   try {
@@ -764,13 +764,13 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     console.log('Successfully clicked Additional Service');
   } catch (e) {
     console.log('Additional Service not found:', e.message);
-    // await capture(page, 'additional-service-not-found');
+    await capture(page, 'additional-service-not-found');
   }
   
   // Step 7: Select business (radio button) and press "continue" button
   console.log('Step 7: Looking for Business radio button...');
   await page.waitForTimeout(3000); // Wait for page to fully load
-  // await capture(page, 'before-business-selection');
+  await capture(page, 'before-business-selection');
   
   // Debug: List all radio buttons and inputs on the page
   try {
@@ -877,31 +877,31 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   
   if (!businessSelected) {
     console.log('Could not find any radio button to select');
-    // await capture(page, 'no-radio-buttons-found');
+    await capture(page, 'no-radio-buttons-found');
   }
   
   console.log('Clicking Continue button...');
   await page.getByRole("button", { name: /continue/i }).click({ timeout: 15000 });
   await page.waitForTimeout(2000);
-  // await capture(page, 'after-business-continue');
+  await capture(page, 'after-business-continue');
   await page.waitForTimeout(1000); // Allow business selection to complete
 
   // Step 8: Next button after Business selection
   console.log('Step 8: Looking for Next button after Business selection...');
-  // await capture(page, 'before-step-8-next');
+  await capture(page, 'before-step-8-next');
   await page.waitForTimeout(1000); // Allow step 8 page to load
   try {
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
-    // await capture(page, 'after-step-8-next');
+    await capture(page, 'after-step-8-next');
   } catch (e) {
     console.log('Step 8 Next button failed:', e.message);
-    // await capture(page, 'step-8-next-failed');
+    await capture(page, 'step-8-next-failed');
   }
 
   // Step 9: Master account? No -> Next
   console.log('Step 9: Looking for master account question...');
-  // await capture(page, 'before-master-account');
+  await capture(page, 'before-master-account');
   await page.waitForTimeout(1000); // Allow master account page to load
   try {
     const noRadio = page.getByLabel(/^No$/i);
@@ -915,15 +915,15 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
-    // await capture(page, 'after-master-account');
+    await capture(page, 'after-master-account');
   } catch (e) {
     console.log('Step 9 master account failed:', e.message);
-    // await capture(page, 'step-9-master-account-failed');
+    await capture(page, 'step-9-master-account-failed');
   }
 
   // Step 10: TIN, Business Type, Person Making Request -> Next
   console.log('Step 10: Looking for TIN and Business Type fields...');
-  // await capture(page, 'before-tin-fields');
+  await capture(page, 'before-tin-fields');
   await page.waitForTimeout(1000); // Allow TIN fields page to load
   try {
     // Fill TIN
@@ -1000,15 +1000,15 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
-    // await capture(page, 'after-tin-fields');
+    await capture(page, 'after-tin-fields');
   } catch (e) {
     console.log('Step 10 TIN fields failed:', e.message);
-    // await capture(page, 'step-10-tin-fields-failed');
+    await capture(page, 'step-10-tin-fields-failed');
   }
 
   // Step 9: Property Use select + Mailing address same -> Next
   console.log('Step 9: Looking for Property Use dropdown...');
-  // await capture(page, 'before-property-use');
+  await capture(page, 'before-property-use');
   await page.waitForTimeout(1000); // Allow property use page to load
   
   try {
@@ -1064,7 +1064,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     
     if (!propertyUseClicked) {
       console.log('Could not click Property Use dropdown');
-      // await capture(page, 'property-use-dropdown-failed');
+      await capture(page, 'property-use-dropdown-failed');
     }
     
     // Wait for dropdown to open
@@ -1086,7 +1086,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
       }
     } catch (e) {
       console.log('Property Manager option selection failed:', e.message);
-      // await capture(page, 'property-manager-option-failed');
+      await capture(page, 'property-manager-option-failed');
     }
     
     // Check mailing address checkbox
@@ -1110,12 +1110,12 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     
   } catch (e) {
     console.log('Step 9 failed:', e.message);
-    // await capture(page, 'step-9-failed');
+    await capture(page, 'step-9-failed');
   }
 
   // Step 11: Confirm property -> Next
   console.log('Step 11: Looking for Confirm property radio button...');
-  // await capture(page, 'before-confirm-property');
+  await capture(page, 'before-confirm-property');
   await page.waitForTimeout(1000); // Allow confirm property page to load
   try {
     const confirmPropertyRadio = page.getByLabel(/Confirm property/i);
@@ -1129,15 +1129,15 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     await page.waitForTimeout(1000);
     await page.getByRole("button", { name: /^next$/i }).click({ timeout: 15000 });
     await page.waitForTimeout(2000);
-    // await capture(page, 'after-confirm-property');
+    await capture(page, 'after-confirm-property');
   } catch (e) {
     console.log('Step 11 Confirm property failed:', e.message);
-    // await capture(page, 'step-11-confirm-property-failed');
+    await capture(page, 'step-11-confirm-property-failed');
   }
 
   // Step 12: Address + unit -> Search/Next
   console.log('Step 12: Looking for Address field...');
-  // await capture(page, 'before-address-fields');
+  await capture(page, 'before-address-fields');
   await page.waitForTimeout(1000); // Allow address fields page to load
   try {
     const addressInput = page.getByLabel(/^Address$/i);
@@ -1148,7 +1148,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
       
       // Look for address dropdown/autocomplete options
       console.log('Looking for address dropdown options...');
-      // await capture(page, 'after-address-input');
+      await capture(page, 'after-address-input');
       
       try {
         // Strategy 1: Use JavaScript to comprehensively find dropdown options
@@ -1224,14 +1224,14 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         if (dropdownResult.success) {
           console.log(`Successfully clicked dropdown option: "${dropdownResult.clicked}"`);
           await page.waitForTimeout(2000);
-          // await capture(page, 'after-dropdown-selection');
+          await capture(page, 'after-dropdown-selection');
         } else {
           console.log(`No clickable dropdown options found (${dropdownResult.count} elements found but none clickable)`);
-          // await capture(page, 'no-dropdown-selection');
+          await capture(page, 'no-dropdown-selection');
         }
       } catch (e) {
         console.log('Dropdown selection failed:', e.message);
-        // await capture(page, 'dropdown-selection-failed');
+        await capture(page, 'dropdown-selection-failed');
       }
     } else {
       console.log('Address input not found');
@@ -1263,7 +1263,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     // Click Search button
     try {
       console.log('Looking for Search button...');
-      // await capture(page, 'before-search-button');
+      await capture(page, 'before-search-button');
       
       // Strategy 1: Use JavaScript to find and click the correct Search button
       console.log('Using JavaScript to find and click Search button...');
@@ -1315,7 +1315,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         }
       } else {
         console.log('Search button not found via any method');
-        // await capture(page, 'search-button-not-found');
+        await capture(page, 'search-button-not-found');
       }
     } catch (e) {
       console.log('Search button click failed:', e.message);
@@ -1329,23 +1329,23 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         console.log('Found Next button, clicking it...');
         await nextButton.click({ timeout: 15000 });
         await page.waitForTimeout(2000);
-        // await capture(page, 'after-address-next');
+        await capture(page, 'after-address-next');
       } else {
         console.log('Next button not found after address');
-        // await capture(page, 'after-address-next-failed');
+        await capture(page, 'after-address-next-failed');
       }
     } catch (e) {
       console.log('Address Next button failed:', e.message);
-      // await capture(page, 'after-address-next-failed');
+      await capture(page, 'after-address-next-failed');
     }
   } catch (e) {
     console.log('Step 12 Address fields failed:', e.message);
-    // await capture(page, 'step-12-address-fields-failed');
+    await capture(page, 'step-12-address-fields-failed');
   }
 
   // Step 13: Confirm
   console.log('Step 13: Looking for Confirm button...');
-  // await capture(page, 'before-confirm');
+  await capture(page, 'before-confirm');
   await page.waitForTimeout(1000); // Allow confirm page to load
   try {
     // Strategy 1: Look for the specific span structure
@@ -1425,12 +1425,12 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   if (confirmClicked) {
     console.log('Confirm button clicked successfully');
     await page.waitForTimeout(3000);
-    // await capture(page, 'after-confirm');
+    await capture(page, 'after-confirm');
     
     // Step 13.5: Handle Unit/Apt number if provided
     if (unit) {
       console.log('Step 13.5: Handling Unit/Apt number...');
-      // await capture(page, 'before-unit-entry');
+      await capture(page, 'before-unit-entry');
       
       try {
         // Look for the Unit# input field
@@ -1500,7 +1500,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
         }
       } catch (e) {
         console.log('Unit handling failed:', e.message);
-        // await capture(page, 'unit-handling-failed');
+        await capture(page, 'unit-handling-failed');
       }
     } else {
       console.log('No unit number provided, skipping unit handling step');
@@ -1514,12 +1514,12 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   }
   } catch (e) {
     console.log('Step 13 Confirm failed:', e.message);
-    // await capture(page, 'confirm-click-failed');
+    await capture(page, 'confirm-click-failed');
   }
 
   // Step 14: Read statuses
   console.log('Step 14: Looking for Meter Status and Property Status...');
-  // await capture(page, 'before-status-reading');
+  await capture(page, 'before-status-reading');
   await page.waitForTimeout(1000); // Allow status page to load
   let meterStatus = "";
   let propertyStatus = "";
@@ -1557,7 +1557,7 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     console.log('Property Status reading failed:', e.message);
   }
   
-  // await capture(page, 'after-status-reading');
+  await capture(page, 'after-status-reading');
   await page.waitForTimeout(1000); // Allow status reading to complete
 
   return {
@@ -1572,7 +1572,7 @@ async function processNextAddress({ page, tin, address, unit }) {
   try {
     // Step 16: Click "Not the right address?" link
     console.log('Step 16: Looking for "Not the right address?" link...');
-    // await capture(page, 'before-not-right-address');
+    await capture(page, 'before-not-right-address');
     await page.waitForTimeout(1000); // Allow not right address page to load
     
     // Try multiple selectors for the "Not the right address?" link
@@ -1611,7 +1611,7 @@ async function processNextAddress({ page, tin, address, unit }) {
     
     // Now we should be back at Step 12 (Address entry)
     console.log('Step 12 (repeat): Looking for Address field...');
-    // await capture(page, 'before-repeat-address-fields');
+    await capture(page, 'before-repeat-address-fields');
     await page.waitForTimeout(1000); // Allow repeat address fields page to load
     
     try {

@@ -1,0 +1,26 @@
+{
+  "name": "fpl-power-meter-status-api",
+  "version": "1.0.0",
+  "description": "FPL Power Meter Status API with Playwright automation",
+  "main": "src/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "postinstall": "echo 'Playwright installed during Docker build'"
+  },
+  "keywords": ["fpl", "power-meter", "playwright", "automation"],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "csv-parse": "^6.1.0",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "path-to-regexp": "^6.2.1",
+    "playwright": "^1.55.0",
+    "uuid": "^13.0.0"
+  }
+}

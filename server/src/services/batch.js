@@ -655,6 +655,34 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   console.log('Step 12: Looking for Address field...');
   // await capture(page, 'before-address-fields');
   try {
+    // First, select "Street Address" from the "Search by" dropdown to enable the address field
+    console.log('Step 12a: Selecting "Street Address" from "Search by" dropdown...');
+    try {
+      const searchByDropdown = page.getByLabel(/^Search by$/i);
+      if (await searchByDropdown.isVisible({ timeout: 5000 })) {
+        console.log('Found "Search by" dropdown, clicking it...');
+        await searchByDropdown.click({ timeout: 5000 });
+        await page.waitForTimeout(1000); // Wait for dropdown options to appear
+        
+        // Select "Street Address" option
+        const streetAddressOption = page.getByRole("option", { name: /^Street Address$/i });
+        if (await streetAddressOption.isVisible({ timeout: 3000 })) {
+          console.log('Found "Street Address" option, selecting it...');
+          await streetAddressOption.click({ timeout: 3000 });
+          await page.waitForTimeout(1000); // Wait for address field to be enabled
+          await capture(page, 'after-search-by-selection');
+        } else {
+          console.log('"Street Address" option not found in dropdown');
+          await capture(page, 'search-by-option-not-found');
+        }
+      } else {
+        console.log('"Search by" dropdown not found, continuing...');
+      }
+    } catch (e) {
+      console.log('Step 12a: Selecting "Search by" dropdown failed:', e.message);
+      await capture(page, 'search-by-dropdown-failed');
+    }
+    
     const addressInput = page.getByLabel(/^Address$/i);
     if (await addressInput.isVisible({ timeout: 5000 })) {
       console.log('Found Address input, filling it...');

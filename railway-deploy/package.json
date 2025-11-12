@@ -19,8 +19,8 @@
     "csv-parse": "^6.1.0",
     "express": "^5.1.0",
     "multer": "^2.0.2",
-    "path-to-regexp": "^6.2.1",
-    "playwright": "^1.55.0",
-    "uuid": "^13.0.0"
+    "path-to-regexp": "^8.2.1",
+    "playwright": "^1.49.2",
+    "uuid": "^11.0.3"
   }
 }

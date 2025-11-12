@@ -1140,6 +1140,119 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
   await capture(page, 'before-address-fields');
   await page.waitForTimeout(1000); // Allow address fields page to load
   try {
+    // First, select "Street Address" from the "Search by" dropdown
+    console.log('Step 12: Looking for "Search by" dropdown...');
+    try {
+      // Try multiple strategies to find the "Search by" dropdown
+      const searchByDropdown = page.getByLabel(/Search by/i).or(
+        page.locator('select').filter({ hasText: /Search by/i })
+      ).or(
+        page.locator('[aria-label*="Search by" i]')
+      ).or(
+        page.locator('div.q-select').filter({ hasText: /Search by/i })
+      );
+      
+      if (await searchByDropdown.isVisible({ timeout: 5000 })) {
+        console.log('Found "Search by" dropdown, selecting "Street Address"...');
+        await searchByDropdown.click({ timeout: 5000 });
+        await page.waitForTimeout(1000);
+        
+        // Look for "Street Address" option in the dropdown
+        const streetAddressOption = page.getByRole('option', { name: /Street Address/i }).or(
+          page.locator('div[role="option"]').filter({ hasText: /Street Address/i })
+        ).or(
+          page.locator('li').filter({ hasText: /Street Address/i })
+        ).or(
+          page.locator('.q-item').filter({ hasText: /Street Address/i })
+        );
+        
+        if (await streetAddressOption.isVisible({ timeout: 5000 })) {
+          console.log('Found "Street Address" option, clicking it...');
+          await streetAddressOption.click({ timeout: 5000 });
+          await page.waitForTimeout(1000);
+          await capture(page, 'after-search-by-selection');
+        } else {
+          // Try JavaScript to find and click "Street Address"
+          console.log('Trying JavaScript to find "Street Address" option...');
+          const selectResult = await page.evaluate(() => {
+            const options = document.querySelectorAll('div[role="option"], li, .q-item, option');
+            for (const option of options) {
+              const text = option.textContent?.trim();
+              if (text && /Street Address/i.test(text)) {
+                console.log(`Found "Street Address" option: ${text}`);
+                option.click();
+                return { success: true, text: text };
+              }
+            }
+            return { success: false };
+          });
+          
+          if (selectResult.success) {
+            console.log(`Successfully selected "Street Address" via JavaScript`);
+            await page.waitForTimeout(1000);
+            await capture(page, 'after-search-by-selection');
+          } else {
+            console.log('Could not find "Street Address" option in dropdown');
+            await capture(page, 'search-by-dropdown-opened');
+          }
+        }
+      } else {
+        console.log('"Search by" dropdown not found, trying alternative selectors...');
+        // Try JavaScript to find the dropdown
+        const dropdownResult = await page.evaluate(() => {
+          // Look for dropdowns with "Search by" text
+          const allElements = document.querySelectorAll('select, div.q-select, div[role="combobox"], button[aria-haspopup="listbox"]');
+          for (const el of allElements) {
+            const label = el.getAttribute('aria-label') || el.textContent || '';
+            const parent = el.closest('div, form, fieldset');
+            const parentText = parent?.textContent || '';
+            
+            if (/Search by/i.test(label) || /Search by/i.test(parentText)) {
+              console.log('Found "Search by" dropdown via JavaScript');
+              el.click();
+              return { found: true, type: el.tagName };
+            }
+          }
+          return { found: false };
+        });
+        
+        if (dropdownResult.found) {
+          console.log('Clicked "Search by" dropdown via JavaScript');
+          await page.waitForTimeout(1000);
+          
+          // Now try to select "Street Address"
+          const streetAddressResult = await page.evaluate(() => {
+            const options = document.querySelectorAll('div[role="option"], li, .q-item, option');
+            for (const option of options) {
+              const text = option.textContent?.trim();
+              if (text && /Street Address/i.test(text)) {
+                option.click();
+                return { success: true, text: text };
+              }
+            }
+            return { success: false };
+          });
+          
+          if (streetAddressResult.success) {
+            console.log(`Successfully selected "Street Address"`);
+            await page.waitForTimeout(1000);
+            await capture(page, 'after-search-by-selection');
+          } else {
+            console.log('Could not find "Street Address" option');
+          }
+        } else {
+          console.log('"Search by" dropdown not found, proceeding with address field...');
+        }
+      }
+    } catch (e) {
+      console.log('"Search by" dropdown selection failed:', e.message);
+      await capture(page, 'search-by-dropdown-failed');
+      // Continue anyway - the address field might still be available
+    }
+    
+    // Wait a bit for the address field to become available after selecting "Street Address"
+    await page.waitForTimeout(1000);
+    
     const addressInput = page.getByLabel(/^Address$/i);
     if (await addressInput.isVisible({ timeout: 5000 })) {
       console.log('Found Address input, filling it...');

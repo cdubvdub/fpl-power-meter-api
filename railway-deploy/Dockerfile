@@ -24,6 +24,9 @@ RUN node -e "try { require('router'); console.log('WARNING: router package found
 
 # Copy source code
 COPY . .
+# Final check: verify no router package exists and list node_modules
+RUN echo "=== Final node_modules check ===" && ls -la node_modules/ | head -20 || true
+RUN test ! -d node_modules/router && echo "✓ router package does not exist" || (echo "✗ router package exists!" && ls -la node_modules/router && exit 1)
 
 # Expose port
 EXPOSE 8080

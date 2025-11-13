@@ -1,3 +1,14 @@
+// Debug: Check for router package before importing Express
+try {
+  const routerCheck = await import('router').catch(() => null);
+  if (routerCheck) {
+    console.error('ERROR: router package found! This should not exist with Express 4.x');
+    process.exit(1);
+  }
+} catch (e) {
+  // Good - router package doesn't exist
+}
+
 import express from "express";
 import cors from "cors";
 import multer from "multer";

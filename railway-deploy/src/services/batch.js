@@ -622,8 +622,21 @@ async function safeLoginFlow({ page, username, password }) {
   
   // Step 1: Browse to https://www.fpl.com
   console.log('Step 1: Navigating to FPL homepage...');
-  await page.goto("https://www.fpl.com", { waitUntil: "networkidle" });
-  await page.waitForLoadState("domcontentloaded");
+  try {
+    await page.goto("https://www.fpl.com", { 
+      waitUntil: "domcontentloaded",
+      timeout: 60000 
+    });
+  } catch (e) {
+    console.log('Initial navigation timeout, trying with load state...');
+    await page.goto("https://www.fpl.com", { 
+      waitUntil: "load",
+      timeout: 60000 
+    });
+  }
+  await page.waitForLoadState("domcontentloaded", { timeout: 30000 }).catch(() => {
+    console.log('Load state timeout, continuing anyway...');
+  });
   // await capture(page, 'fpl-homepage');
   
   // Cookie consent (best-effort)

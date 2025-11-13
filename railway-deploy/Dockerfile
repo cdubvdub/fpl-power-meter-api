@@ -24,16 +24,19 @@ RUN node -e "try { require('router'); console.log('WARNING: router package found
 
 # Copy source code
 COPY . .
-# Final check: verify no router package exists and list node_modules
-RUN echo "=== Final node_modules check ===" && ls -la node_modules/ | head -20 || true
-RUN test ! -d node_modules/router && echo "✓ router package does not exist" || (echo "✗ router package exists!" && ls -la node_modules/router && exit 1)
-# Create a router package shim to prevent module resolution errors
-# Express 4.x has router built-in, but something is trying to require it as a separate package
-RUN mkdir -p node_modules/router/node_modules && \
-    echo 'module.exports = require("express/lib/router");' > node_modules/router/index.js && \
-    echo '{"name":"router","version":"1.0.0","main":"index.js"}' > node_modules/router/package.json && \
+# Check what's installing router package
+RUN echo "=== Checking what installed router ===" && npm list router 2>&1 | head -20 || true
+# Fix router package to use correct path-to-regexp version
+# The router package is being installed by a dependency, so we need to fix its path-to-regexp dependency
+RUN if [ -d "node_modules/router" ]; then \
+    echo "Router package found, fixing path-to-regexp dependency..." && \
+    rm -rf node_modules/router/node_modules/path-to-regexp && \
+    mkdir -p node_modules/router/node_modules && \
     ln -s ../../express/node_modules/path-to-regexp node_modules/router/node_modules/path-to-regexp && \
-    echo "Created router shim package with path-to-regexp symlink"
+    echo "Fixed router package path-to-regexp dependency"; \
+    else \
+    echo "No router package found"; \
+    fi
 
 # Expose port
 EXPOSE 8080

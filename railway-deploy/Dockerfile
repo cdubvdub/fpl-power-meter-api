@@ -15,8 +15,8 @@ RUN rm -rf node_modules package-lock.json && npm install
 # Clear any old browser installations and install fresh
 RUN rm -rf /ms-playwright/chromium-* /ms-playwright/chromium_headless_shell-* 2>/dev/null || true
 RUN npx playwright install chromium || true
-# Verify Chromium is accessible
-RUN node -e "const { chromium } = require('playwright'); (async () => { try { const browser = await chromium.launch({ headless: true }); await browser.close(); console.log('Chromium browser verified successfully'); } catch(e) { console.error('Chromium verification failed:', e.message); process.exit(1); } })();"
+# Verify Chromium is accessible and check the executable path
+RUN node -e "const { chromium } = require('playwright'); (async () => { try { const browserType = chromium; const executablePath = browserType.executablePath(); console.log('Chromium executable path:', executablePath); const browser = await browserType.launch({ headless: true }); await browser.close(); console.log('Chromium browser verified successfully'); } catch(e) { console.error('Chromium verification failed:', e.message); process.exit(1); } })();"
 # Verify Express 4.21.2 is actually installed (not 5.x)
 RUN npm list express && node -e "const express = require('express'); const pkgPath = require.resolve('express/package.json'); const pkg = require(pkgPath); const version = pkg.version; console.log('Express installed version:', version); if (version && version.startsWith('5.')) { console.error('ERROR: Wrong Express version installed! Expected 4.x, got', version); process.exit(1); } if (!version || !version.startsWith('4.')) { console.error('ERROR: Unexpected Express version:', version); process.exit(1); } console.log('Express version check passed:', version);"
 # Debug: Check what Express version was installed and if router exists

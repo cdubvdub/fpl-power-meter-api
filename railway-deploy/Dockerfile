@@ -33,17 +33,17 @@ RUN node -e "try { require('router'); console.log('WARNING: router package found
 COPY . .
 # Check what's installing router package
 RUN echo "=== Checking what installed router ===" && npm list router 2>&1 | head -20 || true
-# Fix router package to use correct path-to-regexp version
-# The router package is being installed by a dependency, so we need to fix its path-to-regexp dependency
+# Remove router package completely - Express 4.x doesn't need it and it causes conflicts
+# The router package is from Express 5.x and expects a newer path-to-regexp API
 RUN if [ -d "node_modules/router" ]; then \
-    echo "Router package found, fixing path-to-regexp dependency..." && \
-    rm -rf node_modules/router/node_modules/path-to-regexp && \
-    mkdir -p node_modules/router/node_modules && \
-    ln -s ../../express/node_modules/path-to-regexp node_modules/router/node_modules/path-to-regexp && \
-    echo "Fixed router package path-to-regexp dependency"; \
+    echo "Router package found, removing it (Express 4.x doesn't need it)..." && \
+    rm -rf node_modules/router && \
+    echo "Router package removed"; \
     else \
-    echo "No router package found"; \
+    echo "No router package found (good)"; \
     fi
+# Also remove router from any nested locations
+RUN find node_modules -type d -name "router" -not -path "*/express/*" -exec rm -rf {} + 2>/dev/null || true
 
 # Expose port
 EXPOSE 8080

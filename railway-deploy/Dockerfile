@@ -15,8 +15,8 @@ RUN rm -rf node_modules package-lock.json && npm install
 # Don't clear browsers - let Playwright install the version it needs
 # Install the specific browser version that Playwright 1.55.0 expects
 RUN npx playwright install chromium || true
-# Verify what browser version Playwright expects
-RUN node -e "const { chromium } = require('playwright'); const path = chromium.executablePath(); console.log('Playwright expects browser at:', path);"
+# Verify what browser version Playwright expects and ensure it exists
+RUN node -e "const { chromium } = require('playwright'); const expectedPath = chromium.executablePath(); console.log('Playwright expects browser at:', expectedPath); const fs = require('fs'); if (fs.existsSync(expectedPath)) { console.log('✓ Browser found at expected path'); } else { console.log('✗ Browser NOT found at expected path, listing /ms-playwright:'); try { const dirs = fs.readdirSync('/ms-playwright'); console.log('Available browsers:', dirs); } catch(e) { console.log('Error reading /ms-playwright:', e.message); } }"
 # Verify Chromium is accessible and check the executable path
 RUN node -e "const { chromium } = require('playwright'); (async () => { try { const browserType = chromium; const executablePath = browserType.executablePath(); console.log('Chromium executable path:', executablePath); console.log('Checking if executable exists...'); const fs = require('fs'); if (fs.existsSync(executablePath)) { console.log('Executable exists at:', executablePath); } else { console.error('Executable NOT found at:', executablePath); process.exit(1); } const browser = await browserType.launch({ headless: true }); await browser.close(); console.log('Chromium browser verified successfully'); } catch(e) { console.error('Chromium verification failed:', e.message); process.exit(1); } })();"
 # Verify Express 4.21.2 is actually installed (not 5.x)

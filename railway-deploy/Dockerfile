@@ -17,6 +17,10 @@ RUN echo "=== Checking for router package ===" && (ls -la node_modules/ | grep -
 RUN rm -rf node_modules/router 2>/dev/null || true
 # Verify Express 4.x is installed correctly
 RUN node -e "const express = require('express'); console.log('Express version:', express.version || 'unknown');"
+# Verify path-to-regexp is accessible
+RUN node -e "try { const p = require('path-to-regexp'); console.log('path-to-regexp version:', p.version || 'loaded'); } catch(e) { console.log('path-to-regexp error:', e.message); }"
+# Check if router package exists at runtime
+RUN node -e "try { require('router'); console.log('WARNING: router package found!'); } catch(e) { console.log('router package not found (good)'); }"
 
 # Copy source code
 COPY . .

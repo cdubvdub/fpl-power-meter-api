@@ -9,10 +9,13 @@ export async function runSingleLookup({ username, password, tin, address, unit }
   console.log('Starting single lookup...');
   await clearArtifacts(); // Clear previous screenshots
   const headless = process.env.HEADLESS !== "false";
+  // Get the correct browser executable path and log it
+  const executablePath = chromium.executablePath();
+  console.log('Chromium executable path:', executablePath);
   // Ensure we use the correct browser executable path
   const browser = await chromium.launch({ 
     headless,
-    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+    executablePath: executablePath
   });
   const context = await browser.newContext();
   const page = await context.newPage();

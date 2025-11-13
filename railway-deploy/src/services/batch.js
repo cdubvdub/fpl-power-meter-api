@@ -5,16 +5,12 @@ import { v4 as uuidv4 } from "uuid";
 import { ensureDatabase } from "../config/database.js";
 import { buildAddressAndUnitFromRow } from "../utils/csv.js";
 
-export async function runSingleLookup({ username, password, tin, address, unit }) {
-  console.log('Starting single lookup...');
-  await clearArtifacts(); // Clear previous screenshots
-  const headless = process.env.HEADLESS !== "false";
-  // Get the correct browser executable path and log it
+// Helper function to get the correct Chromium executable path with fallback
+async function getChromiumExecutablePath() {
   let executablePath = chromium.executablePath();
   console.log('Chromium executable path:', executablePath);
   
   // Check if the executable exists, if not try to find the installed version
-  const fs = await import('fs');
   if (!fs.existsSync(executablePath)) {
     console.log('Executable not found at expected path, searching for installed browsers...');
     // Look for any installed Chromium version
@@ -24,14 +20,27 @@ export async function runSingleLookup({ username, password, tin, address, unit }
       '/ms-playwright/chromium-1187/chrome-linux/chrome',
       '/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell'
     ];
-    for (const path of possiblePaths) {
-      if (fs.existsSync(path)) {
-        console.log('Found browser at:', path);
-        executablePath = path;
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        console.log('Found browser at:', possiblePath);
+        executablePath = possiblePath;
         break;
       }
     }
+    if (!fs.existsSync(executablePath)) {
+      throw new Error(`Chromium executable not found. Expected: ${chromium.executablePath()}, checked: ${possiblePaths.join(', ')}`);
+    }
   }
+  
+  return executablePath;
+}
+
+export async function runSingleLookup({ username, password, tin, address, unit }) {
+  console.log('Starting single lookup...');
+  await clearArtifacts(); // Clear previous screenshots
+  const headless = process.env.HEADLESS !== "false";
+  // Get the correct browser executable path with fallback
+  const executablePath = await getChromiumExecutablePath();
   
   // Ensure we use the correct browser executable path
   const browser = await chromium.launch({ 
@@ -79,9 +88,8 @@ export async function runBatchLookupWithJobId({ username, password, tin, rows, m
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
-    // Get the correct browser executable path
-    const executablePath = chromium.executablePath();
-    console.log('Chromium executable path (batch):', executablePath);
+    // Get the correct browser executable path with fallback
+    const executablePath = await getChromiumExecutablePath();
     // Ensure we use the correct browser executable path
     const browser = await chromium.launch({ 
       headless,
@@ -303,9 +311,8 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
-    // Get the correct browser executable path
-    const executablePath = chromium.executablePath();
-    console.log('Chromium executable path (batch):', executablePath);
+    // Get the correct browser executable path with fallback
+    const executablePath = await getChromiumExecutablePath();
     // Ensure we use the correct browser executable path
     const browser = await chromium.launch({ 
       headless,

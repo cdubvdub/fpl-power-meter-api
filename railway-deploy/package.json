@@ -14,7 +14,7 @@
     "build": "cd web && npm run build",
     "start": "cd server && npm install && npx playwright install chromium && npm start",
     "install:all": "npm install && cd server && npm install && cd ../web && npm install",
-    "postinstall": "cd server && npm install && npx playwright install chromium"
+    "postinstall": "npx playwright install chromium"
   },
   "keywords": ["fpl", "power-meter", "playwright", "automation"],
   "author": "Your Name",

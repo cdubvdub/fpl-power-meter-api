@@ -9,7 +9,10 @@ COPY package*.json ./
 
 # Install dependencies (including dev dependencies needed for build)
 # Use npm install to allow proper dependency resolution with overrides
-RUN rm -rf node_modules package-lock.json && npm install && rm -rf node_modules/router || true
+RUN rm -rf node_modules package-lock.json && npm install
+# Remove any router package that might have been installed (Express 4.x doesn't need it)
+RUN rm -rf node_modules/router 2>/dev/null || true
+RUN ls -la node_modules/ | grep -i router || echo "No router package found (good)"
 
 # Copy source code
 COPY . .

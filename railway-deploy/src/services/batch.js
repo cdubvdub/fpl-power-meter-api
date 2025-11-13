@@ -1205,12 +1205,54 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
     // First, select "Street Address" from the "Search by" dropdown to enable the address field
     console.log('Step 12a: Selecting "Street Address" from "Search by" dropdown...');
     try {
-      const searchByDropdown = page.getByLabel(/^Search by$/i);
-      if (await searchByDropdown.isVisible({ timeout: 5000 })) {
+      // Try multiple strategies to find the "Search by" dropdown
+      let searchByDropdown = null;
+      
+      // Strategy 1: Use data-testid
+      try {
+        searchByDropdown = page.locator('[data-testid="nee_fpl_service_address_search_type_select"]');
+        if (await searchByDropdown.isVisible({ timeout: 3000 })) {
+          console.log('Found "Search by" dropdown by data-testid');
+        } else {
+          searchByDropdown = null;
+        }
+      } catch (e) {
+        console.log('Strategy 1 (data-testid) failed:', e.message);
+      }
+      
+      // Strategy 2: Use aria-label
+      if (!searchByDropdown) {
+        try {
+          searchByDropdown = page.locator('input[role="combobox"][aria-label="Search by"]');
+          if (await searchByDropdown.isVisible({ timeout: 3000 })) {
+            console.log('Found "Search by" dropdown by aria-label');
+          } else {
+            searchByDropdown = null;
+          }
+        } catch (e) {
+          console.log('Strategy 2 (aria-label) failed:', e.message);
+        }
+      }
+      
+      // Strategy 3: Use getByLabel as fallback
+      if (!searchByDropdown) {
+        try {
+          searchByDropdown = page.getByLabel(/^Search by$/i);
+          if (await searchByDropdown.isVisible({ timeout: 3000 })) {
+            console.log('Found "Search by" dropdown by label');
+          } else {
+            searchByDropdown = null;
+          }
+        } catch (e) {
+          console.log('Strategy 3 (getByLabel) failed:', e.message);
+        }
+      }
+      
+      if (searchByDropdown && await searchByDropdown.isVisible({ timeout: 5000 })) {
         console.log('Found "Search by" dropdown, clicking it...');
         await searchByDropdown.click({ timeout: 5000 });
         await page.waitForTimeout(1000); // Wait for dropdown options to appear
-        
+
         // Select "Street Address" option
         const streetAddressOption = page.getByRole("option", { name: /^Street Address$/i });
         if (await streetAddressOption.isVisible({ timeout: 3000 })) {
@@ -1223,7 +1265,8 @@ async function performPostLoginFlow({ page, tin, address, unit }) {
           await capture(page, 'search-by-option-not-found');
         }
       } else {
-        console.log('"Search by" dropdown not found, continuing...');
+        console.log('"Search by" dropdown not found with any strategy, continuing...');
+        await capture(page, 'search-by-dropdown-not-found');
       }
     } catch (e) {
       console.log('Step 12a: Selecting "Search by" dropdown failed:', e.message);

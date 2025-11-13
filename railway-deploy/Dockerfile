@@ -33,17 +33,22 @@ RUN node -e "try { require('router'); console.log('WARNING: router package found
 COPY . .
 # Check what's installing router package
 RUN echo "=== Checking what installed router ===" && npm list router 2>&1 | head -20 || true
-# Remove router package completely - Express 4.x doesn't need it and it causes conflicts
-# The router package is from Express 5.x and expects a newer path-to-regexp API
+# Express 4.x requires 'router' but has it built-in at express/lib/router
+# Remove any external router package and create a shim that re-exports Express's built-in router
 RUN if [ -d "node_modules/router" ]; then \
-    echo "Router package found, removing it (Express 4.x doesn't need it)..." && \
+    echo "Router package found, removing it and creating shim..." && \
     rm -rf node_modules/router && \
-    echo "Router package removed"; \
+    mkdir -p node_modules/router && \
+    echo "module.exports = require('express/lib/router');" > node_modules/router/index.js && \
+    echo '{"name":"router","version":"1.0.0","main":"index.js"}' > node_modules/router/package.json && \
+    echo "Created router shim that re-exports Express's built-in router"; \
     else \
-    echo "No router package found (good)"; \
+    echo "No router package found, creating shim..." && \
+    mkdir -p node_modules/router && \
+    echo "module.exports = require('express/lib/router');" > node_modules/router/index.js && \
+    echo '{"name":"router","version":"1.0.0","main":"index.js"}' > node_modules/router/package.json && \
+    echo "Created router shim that re-exports Express's built-in router"; \
     fi
-# Also remove router from any nested locations
-RUN find node_modules -type d -name "router" -not -path "*/express/*" -exec rm -rf {} + 2>/dev/null || true
 
 # Expose port
 EXPOSE 8080

@@ -10,6 +10,8 @@ COPY package*.json ./
 # Install dependencies (including dev dependencies needed for build)
 # Use npm install to allow proper dependency resolution with overrides
 RUN rm -rf node_modules package-lock.json && npm install
+# Verify Express 4.21.2 is actually installed (not 5.x)
+RUN npm list express && node -e "const pkg = require('./package.json'); const express = require('express'); if (!express.version || express.version.startsWith('5.')) { console.error('ERROR: Wrong Express version installed!'); process.exit(1); } console.log('Express version check passed');"
 # Debug: Check what Express version was installed and if router exists
 RUN echo "=== Checking Express installation ===" && npm list express || true
 RUN echo "=== Checking for router package ===" && (ls -la node_modules/ | grep -i router || echo "No router package found") || true

@@ -9,7 +9,7 @@ COPY package*.json ./
 
 # Install dependencies (including dev dependencies needed for build)
 # Use npm install to allow proper dependency resolution with overrides
-RUN rm -rf node_modules package-lock.json && npm install
+RUN rm -rf node_modules package-lock.json && npm install && rm -rf node_modules/router || true
 
 # Copy source code
 COPY . .

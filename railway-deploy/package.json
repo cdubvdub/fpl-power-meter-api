@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "postinstall": "npx playwright install chromium"
+    "postinstall": "npx playwright install chromium && (rm -rf node_modules/router 2>/dev/null || true)"
   },
   "keywords": ["fpl", "power-meter", "playwright", "automation"],
   "author": "Your Name",

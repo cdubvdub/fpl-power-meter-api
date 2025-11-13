@@ -27,6 +27,12 @@ COPY . .
 # Final check: verify no router package exists and list node_modules
 RUN echo "=== Final node_modules check ===" && ls -la node_modules/ | head -20 || true
 RUN test ! -d node_modules/router && echo "✓ router package does not exist" || (echo "✗ router package exists!" && ls -la node_modules/router && exit 1)
+# Create a router package shim to prevent module resolution errors
+# Express 4.x has router built-in, but something is trying to require it as a separate package
+RUN mkdir -p node_modules/router && \
+    echo 'module.exports = require("express/lib/router");' > node_modules/router/index.js && \
+    echo '{"name":"router","version":"1.0.0","main":"index.js"}' > node_modules/router/package.json && \
+    echo "Created router shim package"
 
 # Expose port
 EXPOSE 8080

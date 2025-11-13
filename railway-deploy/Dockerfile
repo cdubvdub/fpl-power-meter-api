@@ -11,7 +11,8 @@ COPY package*.json ./
 # Use npm install to allow proper dependency resolution with overrides
 RUN rm -rf node_modules package-lock.json && npm install
 # Ensure Playwright browsers are installed correctly
-RUN npx playwright install chromium --with-deps || true
+# Install all browsers to match the Docker image version
+RUN npx playwright install --with-deps || true
 # Verify Express 4.21.2 is actually installed (not 5.x)
 RUN npm list express && node -e "const express = require('express'); const pkgPath = require.resolve('express/package.json'); const pkg = require(pkgPath); const version = pkg.version; console.log('Express installed version:', version); if (version && version.startsWith('5.')) { console.error('ERROR: Wrong Express version installed! Expected 4.x, got', version); process.exit(1); } if (!version || !version.startsWith('4.')) { console.error('ERROR: Unexpected Express version:', version); process.exit(1); } console.log('Express version check passed:', version);"
 # Debug: Check what Express version was installed and if router exists

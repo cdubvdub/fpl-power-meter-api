@@ -20,7 +20,7 @@
     "express": "4.21.2",
     "multer": "^2.0.2",
     "path-to-regexp": "0.1.12",
-    "playwright": "^1.49.2",
+    "playwright": "^1.55.0",
     "uuid": "^11.0.3"
   },
   "overrides": {

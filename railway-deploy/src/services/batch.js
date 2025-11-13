@@ -55,7 +55,11 @@ export async function runBatchLookupWithJobId({ username, password, tin, rows, m
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
-    const browser = await chromium.launch({ headless });
+    // Ensure we use the correct browser executable path
+    const browser = await chromium.launch({ 
+      headless,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+    });
     const context = await browser.newContext();
     const page = await context.newPage();
     let processed = 0;
@@ -272,7 +276,11 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
-    const browser = await chromium.launch({ headless });
+    // Ensure we use the correct browser executable path
+    const browser = await chromium.launch({ 
+      headless,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+    });
     const context = await browser.newContext();
     const page = await context.newPage();
     let processed = 0;

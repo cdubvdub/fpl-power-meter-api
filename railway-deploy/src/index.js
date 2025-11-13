@@ -186,7 +186,8 @@ app.get("/api/jobs/search", (req, res) => {
       console.log(`Found ${jobIds.length} job IDs in date range:`, jobIds);
       
       // Get the full job details for these job IDs
-      jobs = jobIds.map(j => jobs.get(j.job_id)).filter(j => j);
+      const jobIdSet = new Set(jobIds.map(j => j.job_id));
+      jobs = allJobs.filter(j => jobIdSet.has(j.jobId || j.job_id));
     } else {
       // Return all jobs
       jobs = allJobs;

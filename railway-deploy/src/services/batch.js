@@ -10,8 +10,29 @@ export async function runSingleLookup({ username, password, tin, address, unit }
   await clearArtifacts(); // Clear previous screenshots
   const headless = process.env.HEADLESS !== "false";
   // Get the correct browser executable path and log it
-  const executablePath = chromium.executablePath();
+  let executablePath = chromium.executablePath();
   console.log('Chromium executable path:', executablePath);
+  
+  // Check if the executable exists, if not try to find the installed version
+  const fs = await import('fs');
+  if (!fs.existsSync(executablePath)) {
+    console.log('Executable not found at expected path, searching for installed browsers...');
+    // Look for any installed Chromium version
+    const possiblePaths = [
+      '/ms-playwright/chromium-1194/chrome-linux/chrome',
+      '/ms-playwright/chromium_headless_shell-1194/chrome-linux/headless_shell',
+      '/ms-playwright/chromium-1187/chrome-linux/chrome',
+      '/ms-playwright/chromium_headless_shell-1187/chrome-linux/headless_shell'
+    ];
+    for (const path of possiblePaths) {
+      if (fs.existsSync(path)) {
+        console.log('Found browser at:', path);
+        executablePath = path;
+        break;
+      }
+    }
+  }
+  
   // Ensure we use the correct browser executable path
   const browser = await chromium.launch({ 
     headless,
@@ -58,10 +79,13 @@ export async function runBatchLookupWithJobId({ username, password, tin, rows, m
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
+    // Get the correct browser executable path
+    const executablePath = chromium.executablePath();
+    console.log('Chromium executable path (batch):', executablePath);
     // Ensure we use the correct browser executable path
     const browser = await chromium.launch({ 
       headless,
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+      executablePath: executablePath
     });
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -279,10 +303,13 @@ export async function runBatchLookup({ username, password, tin, rows, progressCa
   // Fire-and-forget async processing; keep session during the whole run
   void (async () => {
     const headless = process.env.HEADLESS !== "false";
+    // Get the correct browser executable path
+    const executablePath = chromium.executablePath();
+    console.log('Chromium executable path (batch):', executablePath);
     // Ensure we use the correct browser executable path
     const browser = await chromium.launch({ 
       headless,
-      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined
+      executablePath: executablePath
     });
     const context = await browser.newContext();
     const page = await context.newPage();

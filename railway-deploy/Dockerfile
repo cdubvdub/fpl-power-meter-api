@@ -16,7 +16,12 @@ RUN npm list express && node -e "const express = require('express'); const pkgPa
 RUN echo "=== Checking Express installation ===" && npm list express || true
 RUN echo "=== Checking for router package ===" && (ls -la node_modules/ | grep -i router || echo "No router package found") || true
 # Remove any router package that might have been installed (Express 4.x doesn't need it)
-RUN rm -rf node_modules/router 2>/dev/null || true
+# But if it exists (from a dependency), we'll fix it instead of removing it
+RUN if [ -d "node_modules/router" ]; then \
+    echo "Router package found, will fix it later"; \
+    else \
+    echo "No router package found (good)"; \
+    fi
 # Verify Express 4.x is installed correctly
 RUN node -e "const express = require('express'); console.log('Express version:', express.version || 'unknown');"
 # Verify path-to-regexp is accessible
